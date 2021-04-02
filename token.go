@@ -57,43 +57,43 @@ func (dt *defaultToken) GetXml() string {
 }
 
 type KeywordToken struct {
-	Token
+	defaultToken
 }
 
 func NewKeywordToken(value string) Token {
-	return &defaultToken{value: value, xmlNode: "keyword"}
+	return &KeywordToken{defaultToken{value: value, xmlNode: "keyword"}}
 }
 
 type IdentifierToken struct {
-	Token
+	defaultToken
 }
 
 func NewIdentifierToken(value string) Token {
-	return &defaultToken{value: value, xmlNode: "identifier"}
+	return &IdentifierToken{defaultToken{value: value, xmlNode: "identifier"}}
 }
 
 type SymbolToken struct {
-	Token
+	defaultToken
 }
 
 func NewSymbolToken(value string) Token {
-	return &defaultToken{value: value, xmlNode: "symbol"}
+	return &SymbolToken{defaultToken{value: value, xmlNode: "symbol"}}
 }
 
 type StringConstantToken struct {
-	Token
+	defaultToken
 }
 
 func NewStringConstantToken(value string) Token {
-	return &defaultToken{value: value, xmlNode: "stringConstant"}
+	return &StringConstantToken{defaultToken{value: value, xmlNode: "stringConstant"}}
 }
 
 type IntegerConstantToken struct {
-	Token
+	defaultToken
 }
 
 func NewIntegerConstantToken(value string) Token {
-	return &defaultToken{value: value, xmlNode: "integerConstant"}
+	return &IntegerConstantToken{defaultToken{value: value, xmlNode: "integerConstant"}}
 }
 
 func isSpace(ch byte) bool {
