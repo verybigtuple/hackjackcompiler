@@ -110,6 +110,11 @@ type Tokenizer struct {
 	line   int
 }
 
+func NewTokenizer(r *bufio.Reader) *Tokenizer {
+	sb := strings.Builder{}
+	t := Tokenizer{reader: r, buf: sb}
+	return &t
+}
 func (t *Tokenizer) ReadToken() (Token, error) {
 	t.buf.Reset()
 	first, err := t.skipSpaces()
