@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -115,6 +116,7 @@ func NewTokenizer(r *bufio.Reader) *Tokenizer {
 	t := Tokenizer{reader: r, buf: sb}
 	return &t
 }
+
 func (t *Tokenizer) ReadToken() (Token, error) {
 	t.buf.Reset()
 	first, err := t.skipSpaces()
@@ -133,24 +135,20 @@ func (t *Tokenizer) ReadToken() (Token, error) {
 	case symbols[first]:
 		return NewSymbolToken(string(first)), nil
 	case first == '"':
-		t.readStringToken()
-		word := t.buf.String()
-		return NewKeywordToken(word), nil
+		word := t.readStringToken()
+		return NewStringConstantToken(word), nil
 	case unicode.IsLetter(rune(first)):
-		t.readWord(first)
-		word := t.buf.String()
+		word, err := t.readWord(first)
 		if keywords[word] {
-			return NewKeywordToken(word), nil
+			return NewKeywordToken(word), err
 		}
-		return NewIdentifierToken(word), nil
+		return NewIdentifierToken(word), err
 	case unicode.IsNumber(rune(first)):
-		t.readWord(first)
-		word := t.buf.String()
-		return NewIntegerConstantToken(word), nil
+		word, err := t.readWord(first)
+		return NewIntegerConstantToken(word), err
 	}
 
-	return nil, nil
-
+	return nil, fmt.Errorf("Line: %d, unexpected token", t.line)
 }
 
 func (t *Tokenizer) skipSpaces() (ch byte, err error) {
@@ -203,35 +201,36 @@ func (t *Tokenizer) skipComment() (err error) {
 	return nil
 }
 
-func (t *Tokenizer) readWord(fb byte) (err error) {
+func (t *Tokenizer) readWord(fb byte) (string, error) {
 	t.buf.Reset()
 	t.buf.WriteByte(fb)
-	var next []byte
 	for {
-		next, err = t.reader.Peek(1)
-		if err != nil {
-			return err
+		next, err := t.reader.Peek(1)
+		if err == nil && (isSpace(next[0]) || symbols[next[0]]) {
+			break
 		}
-		if isSpace(next[0]) || symbols[next[0]] {
-			return nil
+		// Just break in case of EOF in order to return the word
+		if errors.Is(err, io.EOF) {
+			break
 		}
-		ch, err := t.reader.ReadByte()
-		if err != nil {
-			return err
+		// If peak do not return EOF error, than ReadByte will be ok
+		if ch, _ := t.reader.ReadByte(); ch != 0 {
+			t.buf.WriteByte(ch)
 		}
-		t.buf.WriteByte(ch)
 	}
+	word := t.buf.String()
+	return word, nil
 }
 
-func (t *Tokenizer) readStringToken() error {
+func (t *Tokenizer) readStringToken() string {
+	t.buf.Reset()
+
 	for {
 		ch, err := t.reader.ReadByte()
-		if err != nil {
-			return err
-		}
-		if ch == '"' {
-			return nil
+		if err != nil || ch == '"' {
+			break
 		}
 		t.buf.WriteByte(ch)
 	}
+	return t.buf.String()
 }
