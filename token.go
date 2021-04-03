@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -118,17 +117,14 @@ func NewTokenizer(r *bufio.Reader) *Tokenizer {
 }
 
 func (t *Tokenizer) ReadToken() (Token, error) {
-	t.buf.Reset()
 	first, err := t.skipSpaces()
 	if err != nil {
 		return nil, err
 	}
 
-	if first == '/' {
-		err := t.skipComment()
-		if err != nil {
-			return nil, err
-		}
+	first, err = t.skipComment(first)
+	if err != nil {
+		return nil, err
 	}
 
 	switch {
@@ -154,8 +150,9 @@ func (t *Tokenizer) ReadToken() (Token, error) {
 func (t *Tokenizer) skipSpaces() (ch byte, err error) {
 	for {
 		ch, err = t.reader.ReadByte()
-		if ch == '\n' {
+		if isEOL(ch) {
 			t.line++
+			continue
 		}
 		if !isSpace(ch) {
 			return
@@ -163,42 +160,77 @@ func (t *Tokenizer) skipSpaces() (ch byte, err error) {
 	}
 }
 
-func (t *Tokenizer) skipComment() (err error) {
+func (t *Tokenizer) isInlineComment(first byte) bool {
+	if first != '/' {
+		return false
+	}
 	next, err := t.reader.Peek(1)
-	if err != nil {
-		return err
+	return err == nil && next[0] == '/'
+}
+
+func (t *Tokenizer) isMultiLineComment(first byte) bool {
+	if first != '/' {
+		return false
 	}
-	// one line comment - skip everythin until next line
-	if next[0] == '/' {
-		for {
-			ch, err := t.reader.ReadByte()
+	next, err := t.reader.Peek(1)
+	return err == nil && next[0] == '*'
+}
+
+func (t *Tokenizer) skipInlineComment() (after byte, err error) {
+	for {
+		ch, err := t.reader.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		if isEOL(ch) {
+			t.line++
+			return t.skipSpaces()
+		}
+	}
+}
+
+func (t *Tokenizer) skipMultilineComment() (after byte, err error) {
+	for {
+		first, err := t.reader.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		if first == '*' {
+			next, err := t.reader.ReadByte()
 			if err != nil {
-				return err
+				return 0, err
 			}
-			if isEOL(ch) {
-				t.line++
-				return nil
+			if next == '/' {
+				break
+			}
+		}
+		if first == '\n' {
+			t.line++
+		}
+	}
+	return t.skipSpaces()
+}
+
+func (t *Tokenizer) skipComment(first byte) (after byte, err error) {
+	for {
+		if !t.isInlineComment(first) && !t.isMultiLineComment(first) {
+			return first, nil
+		}
+
+		if t.isInlineComment(first) {
+			first, err = t.skipInlineComment()
+			if err != nil {
+				return first, err
+			}
+		}
+
+		if t.isMultiLineComment(first) {
+			first, err = t.skipMultilineComment()
+			if err != nil {
+				return first, err
 			}
 		}
 	}
-
-	// Multiline comment
-	if next[0] == '*' {
-		twoBuf := make([]byte, 2)
-
-		for {
-			_, err := io.ReadFull(t.reader, twoBuf)
-			if bytes.Equal(twoBuf, []byte{'*', '/'}) || err != nil {
-				twoBuf = nil
-				return nil
-			}
-			if bytes.Contains(twoBuf, []byte{'\n'}) {
-				t.line++
-			}
-		}
-	}
-
-	return nil
 }
 
 func (t *Tokenizer) readWord(fb byte) (string, error) {
@@ -206,7 +238,7 @@ func (t *Tokenizer) readWord(fb byte) (string, error) {
 	t.buf.WriteByte(fb)
 	for {
 		next, err := t.reader.Peek(1)
-		if err == nil && (isSpace(next[0]) || symbols[next[0]]) {
+		if err == nil && (isSpace(next[0]) || symbols[next[0]] || isEOL(next[0])) {
 			break
 		}
 		// Just break in case of EOF in order to return the word
@@ -229,6 +261,9 @@ func (t *Tokenizer) readStringToken() string {
 		ch, err := t.reader.ReadByte()
 		if err != nil || ch == '"' {
 			break
+		}
+		if ch == '\n' {
+			t.line++
 		}
 		t.buf.WriteByte(ch)
 	}
