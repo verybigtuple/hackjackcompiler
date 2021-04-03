@@ -176,17 +176,13 @@ func (t *Tokenizer) isMultiLineComment(first byte) bool {
 	return err == nil && next[0] == '*'
 }
 
-func (t *Tokenizer) skipInlineComment() (after byte, err error) {
-	for {
-		ch, err := t.reader.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-		if isEOL(ch) {
-			t.line++
-			return t.skipSpaces()
-		}
+func (t *Tokenizer) skipInlineComment() (byte, error) {
+	_, err := t.reader.ReadBytes('\n')
+	if err != nil {
+		return 0, err
 	}
+	t.line++
+	return t.skipSpaces()
 }
 
 func (t *Tokenizer) skipMultilineComment() (after byte, err error) {
