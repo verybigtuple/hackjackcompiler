@@ -123,3 +123,40 @@ func TestComments(t *testing.T) {
 		})
 	}
 }
+
+func TestStringConstant(t *testing.T) {
+	testCase := "a = \"String Constant\"; b"
+	want := []Token{
+		NewIdentifierToken("a"),
+		NewSymbolToken("="),
+		NewStringConstantToken("String Constant"),
+		NewSymbolToken(";"),
+		NewIdentifierToken("b"),
+	}
+	getAllTokens(t, testCase, want)
+}
+
+func TestLineCounter(t *testing.T) {
+	testCase := `// Test program
+	/* some comment
+	   some comment 2
+	*/
+	let a = b;
+	function void testFunc() {
+		var int a, b, c;
+		return;
+	} 
+	`
+	want := strings.Count(testCase, "\n")
+	reader := bufio.NewReader(strings.NewReader(testCase))
+	tokenizer := NewTokenizer(reader)
+
+	for {
+		if _, err := tokenizer.ReadToken(); err != nil {
+			break
+		}
+	}
+	if tokenizer.line != want {
+		t.Fatalf("Got %d lines; want %d", tokenizer.line, want)
+	}
+}
