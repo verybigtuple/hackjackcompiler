@@ -39,10 +39,6 @@ var xmlReplacer = strings.NewReplacer(
 
 type TokenType int
 
-func (tt TokenType) Type() TokenType {
-	return tt
-}
-
 const (
 	TokenKeyword TokenType = iota
 	TokenIdentifier
@@ -50,6 +46,27 @@ const (
 	TokenStringConst
 	TokenIntegerConst
 )
+
+func (tt TokenType) Type() TokenType {
+	return tt
+}
+
+func (tt TokenType) String() string {
+	switch tt {
+	case TokenKeyword:
+		return "Keyword"
+	case TokenIdentifier:
+		return "Identifier"
+	case TokenSymbol:
+		return "Symbol"
+	case TokenStringConst:
+		return "String constant"
+	case TokenIntegerConst:
+		return "Integer constant"
+	default:
+		return fmt.Sprintf("Undefined token type %d", tt)
+	}
+}
 
 type Token interface {
 	Type() TokenType

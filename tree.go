@@ -38,10 +38,10 @@ func (t *ParseTree) Parse() (root Node, err error) {
 func (t *ParseTree) feedToken(tt TokenType, val string) Token {
 	tk := t.current
 	if tk.Type() != tt {
-		t.errorf("Unexpected token type")
+		t.errorf("Unexpexted token type. Expected %v; Got: %v", tt, tk.Type())
 	}
 	if val != "" && tk.GetValue() != val {
-		t.errorf("Unexpected token")
+		t.errorf("Unexpected token value. Expected %s; Got: %s", val, tk.GetValue())
 	}
 	var err error
 	t.current, err = t.tz.ReadToken()
@@ -63,7 +63,7 @@ func (t *ParseTree) feedType() Token {
 	case TokenIdentifier:
 		break
 	default:
-		t.errorf("Unexpected type")
+		t.errorf("Unexpected Token for Var type")
 	}
 
 	var err error
