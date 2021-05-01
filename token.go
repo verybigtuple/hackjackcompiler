@@ -37,7 +37,22 @@ var xmlReplacer = strings.NewReplacer(
 	"&", "&amp;",
 )
 
+type TokenType int
+
+func (tt TokenType) Type() TokenType {
+	return tt
+}
+
+const (
+	TokenKeyword TokenType = iota
+	TokenIdentifier
+	TokenSymbol
+	TokenStringConst
+	TokenIntegerConst
+)
+
 type Token interface {
+	Type() TokenType
 	GetValue() string
 	GetXml() string
 }
@@ -57,43 +72,54 @@ func (dt *defaultToken) GetXml() string {
 }
 
 type KeywordToken struct {
+	TokenType
 	defaultToken
 }
 
 func NewKeywordToken(value string) Token {
-	return &KeywordToken{defaultToken{value: value, xmlNode: "keyword"}}
+	return &KeywordToken{TokenKeyword, defaultToken{value: value, xmlNode: "keyword"}}
 }
 
 type IdentifierToken struct {
+	TokenType
 	defaultToken
 }
 
 func NewIdentifierToken(value string) Token {
-	return &IdentifierToken{defaultToken{value: value, xmlNode: "identifier"}}
+	return &IdentifierToken{TokenIdentifier, defaultToken{value: value, xmlNode: "identifier"}}
 }
 
 type SymbolToken struct {
+	TokenType
 	defaultToken
 }
 
 func NewSymbolToken(value string) Token {
-	return &SymbolToken{defaultToken{value: value, xmlNode: "symbol"}}
+	return &SymbolToken{TokenSymbol, defaultToken{value: value, xmlNode: "symbol"}}
 }
 
 type StringConstantToken struct {
+	TokenType
 	defaultToken
 }
 
 func NewStringConstantToken(value string) Token {
-	return &StringConstantToken{defaultToken{value: value, xmlNode: "stringConstant"}}
+	return &StringConstantToken{
+		TokenStringConst,
+		defaultToken{value: value, xmlNode: "stringConstant"},
+	}
 }
 
 type IntegerConstantToken struct {
+	TokenType
 	defaultToken
 }
 
 func NewIntegerConstantToken(value string) Token {
-	return &IntegerConstantToken{defaultToken{value: value, xmlNode: "integerConstant"}}
+	return &IntegerConstantToken{
+		TokenIntegerConst,
+		defaultToken{value: value, xmlNode: "integerConstant"},
+	}
 }
 
 func isSpace(ch byte) bool {
