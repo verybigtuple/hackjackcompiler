@@ -17,16 +17,15 @@ const (
 type VarDecNode struct {
 	NodeType
 	VarType Token
-	Ids     []*IdentifierToken
+	Ids     []Token
 }
 
-func NewVarDecNode(vType Token, id *IdentifierToken) *VarDecNode {
+func NewVarDecNode(vType Token, id Token) *VarDecNode {
 	nt := VarDecNode{NodeType: NodeVarDec, VarType: vType}
 	nt.Ids = append(nt.Ids, id)
 	return &nt
 }
 
 func (t *VarDecNode) IsClass() bool {
-	_, ok := t.VarType.(*IdentifierToken)
-	return ok
+	return t.VarType.Type() == TokenIdentifier
 }

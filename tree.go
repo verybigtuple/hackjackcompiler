@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 )
 
@@ -34,40 +35,44 @@ func (t *ParseTree) Parse() (root Node, err error) {
 	return
 }
 
-func (t *ParseTree) feedKeyword(val string) *KeywordToken {
-	k, ok := t.current.(*KeywordToken)
-	if ok && k.GetValue() == val {
-		t.current, _ = t.tz.ReadToken()
-	} else {
-		t.errorf("Expected Keyword %s", val)
+func (t *ParseTree) feedToken(tt TokenType, val string) Token {
+	tk := t.current
+	if tk.Type() != tt {
+		t.errorf("Unexpected token type")
 	}
-	return k
-}
-
-func (t *ParseTree) feedIdent() *IdentifierToken {
-	tk, ok := t.current.(*IdentifierToken)
-	if ok {
-		t.current, _ = t.tz.ReadToken()
-	} else {
-		t.errorf("Expected Identifier")
+	if val != "" && tk.GetValue() != val {
+		t.errorf("Unexpected token")
+	}
+	var err error
+	t.current, err = t.tz.ReadToken()
+	if err != nil && err != io.EOF {
+		t.errorf("Unexpected next token")
 	}
 	return tk
 }
 
+// type:'int'|'char'|'boolean'|className
 func (t *ParseTree) feedType() Token {
-	switch tk := t.current.(type) {
-	case *KeywordToken:
+	tk := t.current
+	switch tk.Type() {
+	case TokenKeyword:
 		val := tk.GetValue()
-		if val == "int" || val == "char" || val == "bool" {
-			t.current, _ = t.tz.ReadToken()
-			return tk
+		if val != "int" && val != "char" && val != "bool" {
+			t.errorf("Unexpected type")
 		}
-	case *IdentifierToken:
-		t.current, _ = t.tz.ReadToken()
-		return tk
+	case TokenIdentifier:
+		break
+	default:
+		t.errorf("Unexpected type")
 	}
-	t.errorf("Expected type")
-	return nil
+
+	var err error
+	t.current, err = t.tz.ReadToken()
+	if err != nil {
+		t.errorf("Unexpected next token")
+	}
+
+	return tk
 }
 
 // varDec:'var' type varName (','varName)*';'
@@ -78,7 +83,8 @@ func (t *ParseTree) varDec() *VarDecNode {
 		t.errorf("Unexpected item %v", err)
 	}
 
-	t.feedKeyword("var")
-	vd := NewVarDecNode(t.feedType(), t.feedIdent())
+	t.feedToken(TokenKeyword, "var")
+	vd := NewVarDecNode(t.feedType(), t.feedToken(TokenIdentifier, ""))
+	t.feedToken(TokenSymbol, ";")
 	return vd
 }
