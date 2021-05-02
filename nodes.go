@@ -26,6 +26,10 @@ func NewVarDecNode(vType Token, id Token) *VarDecNode {
 	return &nt
 }
 
-func (t *VarDecNode) IsClass() bool {
-	return t.VarType.Type() == TokenIdentifier
+func (vdn *VarDecNode) AddId(tk Token) {
+	vdn.Ids = append(vdn.Ids, tk)
+}
+
+func (vdn *VarDecNode) IsClass() bool {
+	return vdn.VarType.Type() == TokenIdentifier
 }

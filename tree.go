@@ -10,6 +10,7 @@ import (
 type ParseTree struct {
 	tz      *Tokenizer
 	current Token
+	peeked  Token
 }
 
 func NewPasreTree(tz *Tokenizer) *ParseTree {
@@ -37,6 +38,12 @@ func (t *ParseTree) Parse() (root Node, err error) {
 }
 
 func (t *ParseTree) next() Token {
+	if t.peeked != nil {
+		t.current = t.peeked
+		t.peeked = nil
+		return t.current
+	}
+
 	var err error
 	t.current, err = t.tz.ReadToken()
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -46,6 +53,24 @@ func (t *ParseTree) next() Token {
 		t.errorf("Unexpected EOF")
 	}
 	return t.current
+}
+
+func (t *ParseTree) peek() Token {
+	var err error
+	if t.peeked != nil {
+		panic("You cannot peek twice")
+	}
+
+	t.peeked, err = t.tz.ReadToken()
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.errorf("Unexpected token: %v", err)
+	}
+
+	return t.peeked
+}
+
+func isToken(tk Token, tt TokenType, val string) bool {
+	return tk.Type() == tt && (val == "" || tk.GetValue() == val)
 }
 
 func (t *ParseTree) feedToken(tt TokenType, val string) Token {
@@ -81,6 +106,10 @@ func (t *ParseTree) feedType() Token {
 func (t *ParseTree) varDec() *VarDecNode {
 	t.feedToken(TokenKeyword, "var")
 	vd := NewVarDecNode(t.feedType(), t.feedToken(TokenIdentifier, ""))
+	for !isToken(t.peek(), TokenSymbol, ";") {
+		t.feedToken(TokenSymbol, ",")
+		vd.AddId(t.feedToken(TokenIdentifier, ""))
+	}
 	t.feedToken(TokenSymbol, ";")
 	return vd
 }
