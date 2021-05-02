@@ -13,6 +13,8 @@ type Node interface {
 
 const (
 	NodeVarDec NodeType = iota
+	NodeExpression
+	NodeTerm
 )
 
 type VarDecNode struct {
@@ -49,4 +51,107 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 		}
 	}
 	xb.WriteSymbol(";")
+}
+
+type ExpressionNode struct {
+	NodeType
+	term    *TermNode
+	ops     []Token
+	opTerms []*TermNode
+}
+
+func NewExpressionNode(term *TermNode) *ExpressionNode {
+	return &ExpressionNode{NodeType: NodeExpression, term: term}
+}
+
+func (en *ExpressionNode) AddOpTerm(op Token, term *TermNode) {
+	en.ops = append(en.ops, op)
+	en.opTerms = append(en.opTerms, term)
+}
+
+func (en *ExpressionNode) Xml(xb *XmlBuilder) {
+	xb.Open("expression")
+	defer xb.Close()
+
+	en.term.Xml(xb)
+	if len(en.ops) > 0 {
+		if len(en.ops) != len(en.opTerms) {
+			panic("Expression node is build wrong in operations and terms")
+		}
+		for i, op := range en.ops {
+			xb.WriteToken(op)
+			en.opTerms[i].Xml(xb)
+		}
+	}
+}
+
+type termNodeType int
+
+const (
+	termNodeConst termNodeType = iota
+	termNodeVar
+	termNodeArray
+	termNodeExpr
+	termNodeCall
+	termNodeUnary
+)
+
+type TermNode struct {
+	NodeType
+	termType  termNodeType
+	jConst    Token
+	jVar      Token
+	arrayIdx  *ExpressionNode
+	exp       *ExpressionNode
+	unaryOp   Token
+	unaryTerm *TermNode
+}
+
+func NewConstTermNode(jConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeConst, jConst: jConst}
+}
+
+func NewVarTermNode(jVar Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, jVar: jVar}
+}
+
+func NewArrayTermNode(jVar Token, idx *ExpressionNode) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeArray, jVar: jVar, arrayIdx: idx}
+}
+
+func NewExpressionTermNode(exp *ExpressionNode) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeExpr, exp: exp}
+}
+
+// func NewCallTermNode(jVar Token, idx *TermNode) *TermNode {
+// }
+
+func NewUnaryTermNode(op Token, term *TermNode) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeUnary, unaryOp: op, unaryTerm: term}
+}
+
+func (tn *TermNode) Xml(xb *XmlBuilder) {
+	xb.Open("term")
+	defer xb.Close()
+
+	switch tn.termType {
+	case termNodeConst:
+		xb.WriteToken(tn.jConst)
+	case termNodeVar:
+		xb.WriteToken(tn.jVar)
+	case termNodeArray:
+		xb.WriteToken(tn.jVar)
+		xb.WriteSymbol("[")
+		tn.arrayIdx.Xml(xb)
+		xb.WriteSymbol("]")
+	case termNodeExpr:
+		xb.WriteSymbol("(")
+		tn.exp.Xml(xb)
+		xb.WriteSymbol(")")
+	case termNodeUnary:
+		xb.WriteToken(tn.unaryOp)
+		tn.unaryTerm.Xml(xb)
+	default:
+		panic("Xml is not defined for the type of node")
+	}
 }
