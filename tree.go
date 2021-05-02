@@ -10,7 +10,7 @@ import (
 type ParseTree struct {
 	tz      *Tokenizer
 	current Token
-	peeked  Token
+	peeked  [2]Token
 }
 
 func NewPasreTree(tz *Tokenizer) *ParseTree {
@@ -38,9 +38,14 @@ func (t *ParseTree) Parse() (root Node, err error) {
 }
 
 func (t *ParseTree) next() Token {
-	if t.peeked != nil {
-		t.current = t.peeked
-		t.peeked = nil
+	if t.peeked[1] != nil {
+		t.current, t.peeked[0] = t.peeked[0], t.peeked[1]
+		t.peeked[1] = nil
+		return t.current
+	}
+
+	if t.peeked[0] != nil {
+		t.current, t.peeked[0] = t.peeked[0], nil
 		return t.current
 	}
 
@@ -56,17 +61,21 @@ func (t *ParseTree) next() Token {
 }
 
 func (t *ParseTree) peek() Token {
-	var err error
-	if t.peeked != nil {
-		panic("You cannot peek twice")
+	if t.peeked[1] != nil {
+		panic("You cannot peek more than twice in a row")
 	}
 
-	t.peeked, err = t.tz.ReadToken()
+	p, err := t.tz.ReadToken()
 	if err != nil && !errors.Is(err, io.EOF) {
 		t.errorf("Unexpected token: %v", err)
 	}
+	if t.peeked[0] == nil {
+		t.peeked[0] = p
+	} else {
+		t.peeked[1] = p
+	}
 
-	return t.peeked
+	return p
 }
 
 func isToken(tk Token, tt TokenType, val string) bool {
