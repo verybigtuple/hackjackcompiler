@@ -8,6 +8,7 @@ func (nt NodeType) Type() NodeType {
 
 type Node interface {
 	Type() NodeType
+	Xml(xb *XmlBuilder)
 }
 
 const (
@@ -32,4 +33,20 @@ func (vdn *VarDecNode) AddId(tk Token) {
 
 func (vdn *VarDecNode) IsClass() bool {
 	return vdn.VarType.Type() == TokenIdentifier
+}
+
+func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
+	xb.Open("varDec")
+	defer xb.Close()
+
+	xb.WriteKeyword("var")
+	xb.WriteToken(vdn.VarType)
+	xb.WriteToken(vdn.Ids[0])
+	if len(vdn.Ids) > 1 {
+		for _, id := range vdn.Ids[1:] {
+			xb.WriteSymbol(",")
+			xb.WriteToken(id)
+		}
+	}
+	xb.WriteSymbol(";")
 }
