@@ -13,6 +13,7 @@ type Node interface {
 
 const (
 	NodeVarDec NodeType = iota
+	NodeLetStatement
 	NodeExpression
 	NodeTerm
 )
@@ -51,6 +52,38 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 		}
 	}
 	xb.WriteSymbol(";")
+}
+
+type LetStatementNode struct {
+	NodeType
+	VarName  Token
+	ArrayExp *ExpressionNode
+	ValueExp *ExpressionNode
+}
+
+func NewLetStatementNode(varName Token, arrExp *ExpressionNode, valExp *ExpressionNode) *LetStatementNode {
+	lsn := LetStatementNode{
+		NodeType: NodeLetStatement,
+		VarName:  varName,
+		ArrayExp: arrExp,
+		ValueExp: valExp,
+	}
+	return &lsn
+}
+
+func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
+	xb.Open("letStatement")
+	defer xb.Close()
+
+	xb.WriteKeyword("let")
+	xb.WriteToken(lsn.VarName)
+	if lsn.ArrayExp != nil {
+		xb.WriteSymbol("[")
+		lsn.ArrayExp.Xml(xb)
+		xb.WriteSymbol("]")
+	}
+	xb.WriteSymbol("=")
+	lsn.ValueExp.Xml(xb)
 }
 
 type ExpressionNode struct {
