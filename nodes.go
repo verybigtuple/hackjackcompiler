@@ -16,6 +16,8 @@ const (
 	NodeLetStatement
 	NodeExpression
 	NodeTerm
+	NodeSubroutineCall
+	NodeExpressionList
 )
 
 type VarDecNode struct {
@@ -116,6 +118,53 @@ func (en *ExpressionNode) Xml(xb *XmlBuilder) {
 			en.opTerms[i].Xml(xb)
 		}
 	}
+}
+
+type ExpressionListNode struct {
+	NodeType
+	Exprs []*ExpressionNode
+}
+
+func NewExpressionListNode() *ExpressionListNode {
+	return &ExpressionListNode{NodeType: NodeExpressionList}
+}
+
+func (eln *ExpressionListNode) AddExpr(expr *ExpressionNode) {
+	eln.Exprs = append(eln.Exprs, expr)
+}
+
+func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
+	xb.Open("expressionList")
+	defer xb.Close()
+
+	for _, expr := range eln.Exprs {
+		expr.Xml(xb)
+	}
+}
+
+type SubroutineCallNode struct {
+	NodeType
+	ClassName      Token
+	SubroutineName Token
+	Params         *ExpressionListNode
+}
+
+func NewSubroutineCallNode(clsName Token, sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
+	return &SubroutineCallNode{NodeSubroutineCall, clsName, sbrName, params}
+}
+
+func (sc *SubroutineCallNode) Xml(xb *XmlBuilder) {
+	xb.Open("subroutineCall")
+	defer xb.Close()
+
+	if sc.ClassName != nil {
+		xb.WriteToken(sc.ClassName)
+		xb.WriteSymbol(".")
+	}
+	xb.WriteToken(sc.SubroutineName)
+	xb.WriteSymbol("(")
+	sc.Params.Xml(xb)
+	xb.WriteSymbol(")")
 }
 
 type termNodeType int

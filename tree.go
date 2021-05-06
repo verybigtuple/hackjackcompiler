@@ -213,3 +213,41 @@ func (t *ParseTree) term() *TermNode {
 
 	return tn
 }
+
+// subroutineName '(' expressionList ')' | (className |varName) '.' subroutineName '(' expressionList ')'
+func (t *ParseTree) subroutineCall() *SubroutineCallNode {
+	name := t.feedToken(TokenIdentifier, "")
+
+	var className Token // can be nil
+	var sbrName Token
+	if isTokenOne(t.peek(), TokenSymbol, ".") {
+		t.feed()
+		className = name
+		sbrName = t.feedToken(TokenIdentifier, "")
+	} else {
+		sbrName = name
+	}
+	t.feedToken(TokenSymbol, "(")
+	params := t.expressionList()
+	t.feedToken(TokenSymbol, ")")
+	return NewSubroutineCallNode(className, sbrName, params)
+}
+
+// (expression (','expression)* )?
+func (t *ParseTree) expressionList() *ExpressionListNode {
+	eln := NewExpressionListNode()
+
+	if !isTokenOne(t.peek(), TokenSymbol, ")") {
+		firstExpr := t.expression()
+		eln.AddExpr(firstExpr)
+	}
+
+	p := t.peek()
+	for isTokenOne(p, TokenSymbol, ",") {
+		t.feed() // feed ","
+		addExpr := t.expression()
+		eln.AddExpr(addExpr)
+		p = t.peek()
+	}
+	return eln
+}
