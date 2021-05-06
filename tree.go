@@ -215,6 +215,13 @@ func (t *ParseTree) whileStatement() *WhileStatementNode {
 	return NewWhileStatementNode(expr, st)
 }
 
+func (t *ParseTree) doStatement() *DoStatementNode {
+	t.feedToken(TokenKeyword, "do")
+	call := t.subroutineCall()
+	t.feedToken(TokenSymbol, ";")
+	return NewDoStatementNode(call)
+}
+
 // term (op term)*
 func (t *ParseTree) expression() *ExpressionNode {
 	term := t.term()

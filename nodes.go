@@ -17,6 +17,7 @@ const (
 	NodeLetStatement
 	NodeIfStatement
 	NodeWhileStatement
+	NodeDoStatement
 	NodeExpression
 	NodeTerm
 	NodeSubroutineCall
@@ -164,6 +165,22 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("{")
 	wsn.Stat.Xml(xb)
 	xb.WriteSymbol("}")
+}
+
+type DoStatementNode struct {
+	NodeType
+	Call *SubroutineCallNode
+}
+
+func NewDoStatementNode(call *SubroutineCallNode) *DoStatementNode {
+	return &DoStatementNode{NodeDoStatement, call}
+}
+
+func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
+	xb.Open("doStatement")
+	defer xb.Close()
+	ds.Call.Xml(xb)
+	xb.WriteSymbol(";")
 }
 
 type ExpressionNode struct {
