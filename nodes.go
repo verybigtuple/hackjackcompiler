@@ -13,7 +13,9 @@ type Node interface {
 
 const (
 	NodeVarDec NodeType = iota
+	NodeStatements
 	NodeLetStatement
+	NodeIfStatement
 	NodeExpression
 	NodeTerm
 	NodeSubroutineCall
@@ -86,6 +88,58 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	}
 	xb.WriteSymbol("=")
 	lsn.ValueExp.Xml(xb)
+}
+
+type StatementsNode struct {
+	NodeType
+	StList []Node
+}
+
+func NewStatementsNode() *StatementsNode {
+	return &StatementsNode{NodeType: NodeStatements}
+}
+
+func (sn *StatementsNode) AddSt(stat Node) {
+	sn.StList = append(sn.StList, stat)
+}
+
+func (sn *StatementsNode) Xml(xb *XmlBuilder) {
+	xb.Open("statements")
+	defer xb.Close()
+
+	for _, s := range sn.StList {
+		s.Xml(xb)
+	}
+}
+
+type IfStatementNode struct {
+	NodeType
+	IfExpr   *ExpressionNode
+	IfStat   *StatementsNode
+	ElseStat *StatementsNode // can be nil
+}
+
+func NewIfStatementNode(ifExpr *ExpressionNode, ifSt, elseSt *StatementsNode) *IfStatementNode {
+	return &IfStatementNode{NodeIfStatement, ifExpr, ifSt, elseSt}
+}
+
+func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
+	xb.Open("ifStatement")
+	defer xb.Close()
+
+	xb.WriteKeyword("if")
+	xb.WriteSymbol("(")
+	ifn.IfExpr.Xml(xb)
+	xb.WriteSymbol(")")
+	xb.WriteSymbol("{")
+	ifn.IfStat.Xml(xb)
+	xb.WriteSymbol("}")
+	if ifn.ElseStat != nil {
+		xb.WriteKeyword("else")
+		xb.WriteSymbol("{")
+		ifn.ElseStat.Xml(xb)
+		xb.WriteSymbol("}")
+	}
 }
 
 type ExpressionNode struct {

@@ -27,81 +27,97 @@ func simpleTest(t *testing.T, start func(*ParseTree) Node, cases []testCase) {
 	}
 }
 
-var varDecCases = []testCase{
-	{"One int", "var int a;", false},
-	{"One char", "var char a;", false},
-	{"One bool", "var boolean a;", false},
-	{"One class", "var MyClass a;", false},
-	{"Many ints", "var int a, b, c;", false},
-	//Errors
-	{"Wrong comma", "var int a,b, ;", true},
-	{"No ;", "var int a, b, c", true},
-	{"Unexpected finish", "var int a, b, c:", true},
-	{"Wrong type", "var bool a;", true},
-	{"Wrong type keyword", "var class a;", true},
-	{"Wrong keyord", "vara int a;", true},
-}
-
 func TestDecNode(t *testing.T) {
+	varDecCases := []testCase{
+		{"One int", "var int a;", false},
+		{"One char", "var char a;", false},
+		{"One bool", "var boolean a;", false},
+		{"One class", "var MyClass a;", false},
+		{"Many ints", "var int a, b, c;", false},
+		//Errors
+		{"Wrong comma", "var int a,b, ;", true},
+		{"No ;", "var int a, b, c", true},
+		{"Unexpected finish", "var int a, b, c:", true},
+		{"Wrong type", "var bool a;", true},
+		{"Wrong type keyword", "var class a;", true},
+		{"Wrong keyord", "vara int a;", true},
+	}
 	start := func(t *ParseTree) Node { return t.varDec() }
 	simpleTest(t, start, varDecCases)
 }
 
-var termTestCases = []testCase{
-	{"Integer", "0", false},
-	{"String", "\"String const\"", false},
-	{"True const", "true", false},
-	{"False const", "false", false},
-	{"Null const", "null", false},
-	{"This const", "this", false},
-	{"Var name", "a", false},
-	{"Array", "a[1]", false},
-	{"Array with expression", "a[1+1]", false},
-	{"Expression", "(a + b)", false},
-	{"Unary minus", "-a", false},
-	{"Unary Not", "~1", false},
-	//Errors
-	{"Symbol", "+", true},
-	{"End of string", ";", true},
-	{"No end for array", "a[1;", true},
-	{"Worng end of array", "a[1);", true},
-	{"Worng keword", "class", true},
-	{"Wrong unary", "+a", true},
-}
-
 func TestTermNode(t *testing.T) {
+	termTestCases := []testCase{
+		{"Integer", "0", false},
+		{"String", "\"String const\"", false},
+		{"True const", "true", false},
+		{"False const", "false", false},
+		{"Null const", "null", false},
+		{"This const", "this", false},
+		{"Var name", "a", false},
+		{"Array", "a[1]", false},
+		{"Array with expression", "a[1+1]", false},
+		{"Expression", "(a + b)", false},
+		{"Unary minus", "-a", false},
+		{"Unary Not", "~1", false},
+		//Errors
+		{"Symbol", "+", true},
+		{"End of string", ";", true},
+		{"No end for array", "a[1;", true},
+		{"Worng end of array", "a[1);", true},
+		{"Worng keword", "class", true},
+		{"Wrong unary", "+a", true},
+	}
 	start := func(t *ParseTree) Node { return t.term() }
 	simpleTest(t, start, termTestCases)
 }
 
-var exprCases = []testCase{
-	{"Two operands", "a + 0", false},
-	{"More operands", "a + 0 - 1 / 3", false},
-	//Errors
-	{"Wrong operands", "a~1", true},
-	{"Wrong keyword", "a+class", true},
-}
-
 func TestExprNode(t *testing.T) {
-	start := func(t *ParseTree) Node { return t.expression() }
+	exprCases := []testCase{
+		{"Two operands", "a + 0", false},
+		{"More operands", "a + 0 - 1 / 3", false},
+		//Errors
+		{"Wrong operands", "a~1", true},
+		{"Wrong keyword", "a+class", true},
+	}
+
+	start := func(p *ParseTree) Node { return p.expression() }
 	simpleTest(t, start, exprCases)
 }
 
-var subRoutineCases = []testCase{
-	{"Call without params", "foo()", false},
-	{"Call with one param", "foo(1)", false},
-	{"Call with many params", "foo(1, a, d)", false},
-	{"Call nested", "foo(bar(a))", false},
-	{"Class Mamber without params", "MyClass.Foo()", false},
-	{"Class Mamber with params", "MyClass.Foo(1, 2, a + 3)", false},
-	{"Class Mamber with nester", "MyClass.Foo(bar(a) + 1)", false},
-
-	//Errors
-	{"Wrong parenthesis", "Foo[]", true},
-	{"Wrong commas", "Foo(a + b,)", true},
-}
-
 func TestCallNode(t *testing.T) {
+	subRoutineCases := []testCase{
+		{"Call without params", "foo()", false},
+		{"Call with one param", "foo(1)", false},
+		{"Call with many params", "foo(1, a, d)", false},
+		{"Call nested", "foo(bar(a))", false},
+		{"Class Mamber without params", "MyClass.Foo()", false},
+		{"Class Mamber with params", "MyClass.Foo(1, 2, a + 3)", false},
+		{"Class Mamber with nester", "MyClass.Foo(bar(a) + 1)", false},
+
+		//Errors
+		{"Wrong parenthesis", "Foo[]", true},
+		{"Wrong commas", "Foo(a + b,)", true},
+	}
+
 	start := func(t *ParseTree) Node { return t.subroutineCall() }
 	simpleTest(t, start, subRoutineCases)
+}
+
+func TestIfNode(t *testing.T) {
+	ifStatementCases := []testCase{
+		{"Empty if", "if(a) {}", false},
+		{"If with statement", "if(a) { if (1) {} }", false},
+		{"If with else", "if(a) {} else {}", false},
+		{"If with else with statements", "if(a) {if (1) {} } else { if (2) {} }", false},
+		{"If with let", "if(a) {let b = 0;}", false},
+
+		//errors
+		{"If without expression", "if {a}", true},
+		{"else without if", "else {}", true},
+		{"else with expression", "else (a) {}", true},
+		{"if else if", "if (a) else if (a) {}", true},
+	}
+	start := func(p *ParseTree) Node { return p.ifStatement() }
+	simpleTest(t, start, ifStatementCases)
 }

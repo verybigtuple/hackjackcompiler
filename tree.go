@@ -144,6 +144,27 @@ func (t *ParseTree) varDec() *VarDecNode {
 	return vd
 }
 
+func (t *ParseTree) statements() *StatementsNode {
+	st := NewStatementsNode()
+	p := t.peek(0)
+	for !isTokenOne(p, TokenSymbol, "}") {
+		var newSt Node
+
+		switch p.GetValue() {
+		case "let":
+			newSt = t.letStatement()
+		case "if":
+			newSt = t.ifStatement()
+		default:
+			t.errorf("Expected one of statement keywords let/if/while/return")
+		}
+
+		st.AddSt(newSt)
+		p = t.peek(0)
+	}
+	return st
+}
+
 // 'let'varName ('['expression']')?'='expression';'
 func (t *ParseTree) letStatement() *LetStatementNode {
 	t.feedToken(TokenKeyword, "let")
@@ -159,6 +180,26 @@ func (t *ParseTree) letStatement() *LetStatementNode {
 	valExpr := t.expression()
 	t.feedToken(TokenSymbol, ";")
 	return NewLetStatementNode(varNameToken, arrExpr, valExpr)
+}
+
+// 'if''('expression')''{'statements'}'('else''{'statements'}')?
+func (t *ParseTree) ifStatement() *IfStatementNode {
+	t.feedToken(TokenKeyword, "if")
+	t.feedToken(TokenSymbol, "(")
+	ifExpr := t.expression()
+	t.feedToken(TokenSymbol, ")")
+	t.feedToken(TokenSymbol, "{")
+	ifSt := t.statements()
+	t.feedToken(TokenSymbol, "}")
+
+	var elseSt *StatementsNode
+	if isTokenOne(t.peek(0), TokenKeyword, "else") {
+		t.feed()
+		t.feedToken(TokenSymbol, "{")
+		elseSt = t.statements()
+		t.feedToken(TokenSymbol, "}")
+	}
+	return NewIfStatementNode(ifExpr, ifSt, elseSt)
 }
 
 // term (op term)*
