@@ -155,6 +155,8 @@ func (t *ParseTree) statements() *StatementsNode {
 			newSt = t.letStatement()
 		case "if":
 			newSt = t.ifStatement()
+		case "while":
+			newSt = t.whileStatement()
 		default:
 			t.errorf("Expected one of statement keywords let/if/while/return")
 		}
@@ -200,6 +202,17 @@ func (t *ParseTree) ifStatement() *IfStatementNode {
 		t.feedToken(TokenSymbol, "}")
 	}
 	return NewIfStatementNode(ifExpr, ifSt, elseSt)
+}
+
+func (t *ParseTree) whileStatement() *WhileStatementNode {
+	t.feedToken(TokenKeyword, "while")
+	t.feedToken(TokenSymbol, "(")
+	expr := t.expression()
+	t.feedToken(TokenSymbol, ")")
+	t.feedToken(TokenSymbol, "{")
+	st := t.statements()
+	t.feedToken(TokenSymbol, "}")
+	return NewWhileStatementNode(expr, st)
 }
 
 // term (op term)*

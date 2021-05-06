@@ -16,6 +16,7 @@ const (
 	NodeStatements
 	NodeLetStatement
 	NodeIfStatement
+	NodeWhileStatement
 	NodeExpression
 	NodeTerm
 	NodeSubroutineCall
@@ -140,6 +141,29 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 		ifn.ElseStat.Xml(xb)
 		xb.WriteSymbol("}")
 	}
+}
+
+type WhileStatementNode struct {
+	NodeType
+	Expr *ExpressionNode
+	Stat *StatementsNode
+}
+
+func NewWhileStatementNode(expr *ExpressionNode, stat *StatementsNode) *WhileStatementNode {
+	return &WhileStatementNode{NodeWhileStatement, expr, stat}
+}
+
+func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
+	xb.Open("whileStatement")
+	defer xb.Close()
+
+	xb.WriteKeyword("while")
+	xb.WriteSymbol("(")
+	wsn.Expr.Xml(xb)
+	xb.WriteSymbol(")")
+	xb.WriteSymbol("{")
+	wsn.Stat.Xml(xb)
+	xb.WriteSymbol("}")
 }
 
 type ExpressionNode struct {
