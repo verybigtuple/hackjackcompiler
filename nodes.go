@@ -187,6 +187,7 @@ type TermNode struct {
 	exp       *ExpressionNode
 	unaryOp   Token
 	unaryTerm *TermNode
+	call      *SubroutineCallNode
 }
 
 func NewConstTermNode(jConst Token) *TermNode {
@@ -205,8 +206,9 @@ func NewExpressionTermNode(exp *ExpressionNode) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeExpr, exp: exp}
 }
 
-// func NewCallTermNode(jVar Token, idx *TermNode) *TermNode {
-// }
+func NewCallTermNode(call *SubroutineCallNode) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeCall, call: call}
+}
 
 func NewUnaryTermNode(op Token, term *TermNode) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeUnary, unaryOp: op, unaryTerm: term}
@@ -233,6 +235,8 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	case termNodeUnary:
 		xb.WriteToken(tn.unaryOp)
 		tn.unaryTerm.Xml(xb)
+	case termNodeCall:
+		tn.call.Xml(xb)
 	default:
 		panic("Xml is not defined for the type of node")
 	}

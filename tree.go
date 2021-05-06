@@ -10,7 +10,7 @@ import (
 type ParseTree struct {
 	tz      *Tokenizer
 	current Token
-	peeked  Token
+	peeked  [2]Token // buffer for peeked values
 	root    func(*ParseTree) Node
 }
 
@@ -41,8 +41,13 @@ func (t *ParseTree) Parse() (root Node, err error) {
 }
 
 func (t *ParseTree) next() Token {
-	if t.peeked != nil {
-		t.current, t.peeked = t.peeked, nil
+	if t.peeked[1] != nil {
+		t.current, t.peeked[0], t.peeked[1] = t.peeked[0], t.peeked[1], nil
+		return t.current
+	}
+
+	if t.peeked[0] != nil {
+		t.current, t.peeked[0] = t.peeked[0], nil
 		return t.current
 	}
 
@@ -57,16 +62,20 @@ func (t *ParseTree) next() Token {
 	return t.current
 }
 
-func (t *ParseTree) peek() Token {
-	if t.peeked != nil {
-		return t.peeked
+func (t *ParseTree) peek(fw int) Token {
+	if fw < 0 || fw > 1 {
+		panic("Can peak only for 0 or 1")
+	}
+
+	if t.peeked[fw] != nil {
+		return t.peeked[fw]
 	}
 
 	p, err := t.tz.ReadToken()
 	if err != nil && !errors.Is(err, io.EOF) {
 		t.errorf("Unknown Token: %v", err)
 	}
-	t.peeked = p
+	t.peeked[fw] = p
 
 	return p
 }
@@ -127,7 +136,7 @@ func (t *ParseTree) feedType() Token {
 func (t *ParseTree) varDec() *VarDecNode {
 	t.feedToken(TokenKeyword, "var")
 	vd := NewVarDecNode(t.feedType(), t.feedToken(TokenIdentifier, ""))
-	for !isTokenOne(t.peek(), TokenSymbol, ";") {
+	for !isTokenOne(t.peek(0), TokenSymbol, ";") {
 		t.feedToken(TokenSymbol, ",")
 		vd.AddId(t.feedToken(TokenIdentifier, ""))
 	}
@@ -141,7 +150,7 @@ func (t *ParseTree) letStatement() *LetStatementNode {
 	varNameToken := t.feedToken(TokenIdentifier, "")
 
 	var arrExpr *ExpressionNode
-	if p := t.peek(); isTokenOne(p, TokenSymbol, "[") {
+	if p := t.peek(0); isTokenOne(p, TokenSymbol, "[") {
 		t.feed() //feed [
 		arrExpr = t.expression()
 		t.feedToken(TokenSymbol, "]")
@@ -157,12 +166,12 @@ func (t *ParseTree) expression() *ExpressionNode {
 	term := t.term()
 	en := NewExpressionNode(term)
 
-	p := t.peek()
+	p := t.peek(0)
 	for isTokenAny(p, TokenSymbol, "+", "-", "*", "/", "&", "|", "<", ">", "=") {
 		opToken := t.feed()
 		nextTerm := t.term()
 		en.AddOpTerm(opToken, nextTerm)
-		p = t.peek()
+		p = t.peek(0)
 	}
 	return en
 }
@@ -170,45 +179,49 @@ func (t *ParseTree) expression() *ExpressionNode {
 // term:  integerConstant | stringConstant | keywordConstant | varName | varName'['expression']'|
 // subroutineCall |'('expression')'| unaryOp term
 func (t *ParseTree) term() *TermNode {
-	p := t.peek()
+	pFirst := t.peek(0)
 	var tn *TermNode
 	switch {
 	// integerConstant
-	case isTokenType(p, TokenIntegerConst):
+	case isTokenType(pFirst, TokenIntegerConst):
 		intToken := t.feed()
 		tn = NewConstTermNode(intToken)
 	// stringConstant
-	case isTokenType(p, TokenStringConst):
+	case isTokenType(pFirst, TokenStringConst):
 		strToken := t.feed()
 		tn = NewConstTermNode(strToken)
 	// keywordConstant
-	case isTokenAny(p, TokenKeyword, "true", "false", "null", "this"):
+	case isTokenAny(pFirst, TokenKeyword, "true", "false", "null", "this"):
 		kwToken := t.feed()
 		tn = NewConstTermNode(kwToken)
 	// unaryOp term
-	case isTokenAny(p, TokenSymbol, "-", "~"):
+	case isTokenAny(pFirst, TokenSymbol, "-", "~"):
 		unOpTk := t.feed()
 		childTerm := t.term()
 		tn = NewUnaryTermNode(unOpTk, childTerm)
-	case isTokenOne(p, TokenSymbol, "("):
+	case isTokenOne(pFirst, TokenSymbol, "("):
 		t.feed()
 		expr := t.expression()
 		tn = NewExpressionTermNode(expr)
 		t.feedToken(TokenSymbol, ")")
-	//varName | varName'['expression']'
-	case isTokenType(p, TokenIdentifier):
-		varName := t.feed()
-		pn := t.peek() // peek one more
-		if isTokenOne(pn, TokenSymbol, "[") {
-			t.feed() // feed [
+	//varName | varName'['expression']' | subroutineCall
+	case isTokenType(pFirst, TokenIdentifier):
+		pSecond := t.peek(1) // peek one more
+		if isTokenOne(pSecond, TokenSymbol, "[") {
+			ident := t.feed() // feed Identifier (peek(0))
+			t.feed()          // feed [
 			expr := t.expression()
-			tn = NewArrayTermNode(varName, expr)
+			tn = NewArrayTermNode(ident, expr)
 			t.feedToken(TokenSymbol, "]")
+		} else if isTokenOne(pSecond, TokenSymbol, "(") {
+			call := t.subroutineCall() // Call will feed Identifier and ( itself
+			tn = NewCallTermNode(call)
 		} else {
-			tn = NewVarTermNode(varName)
+			ident := t.feed()
+			tn = NewVarTermNode(ident)
 		}
 	default:
-		t.errorf("Token is not a term: %v %s", p.Type(), p.GetValue())
+		t.errorf("Token is not a term: %v %s", pFirst.Type(), pFirst.GetValue())
 	}
 
 	return tn
@@ -220,7 +233,7 @@ func (t *ParseTree) subroutineCall() *SubroutineCallNode {
 
 	var className Token // can be nil
 	var sbrName Token
-	if isTokenOne(t.peek(), TokenSymbol, ".") {
+	if isTokenOne(t.peek(0), TokenSymbol, ".") {
 		t.feed()
 		className = name
 		sbrName = t.feedToken(TokenIdentifier, "")
@@ -237,17 +250,17 @@ func (t *ParseTree) subroutineCall() *SubroutineCallNode {
 func (t *ParseTree) expressionList() *ExpressionListNode {
 	eln := NewExpressionListNode()
 
-	if !isTokenOne(t.peek(), TokenSymbol, ")") {
+	if !isTokenOne(t.peek(0), TokenSymbol, ")") {
 		firstExpr := t.expression()
 		eln.AddExpr(firstExpr)
 	}
 
-	p := t.peek()
+	p := t.peek(0)
 	for isTokenOne(p, TokenSymbol, ",") {
 		t.feed() // feed ","
 		addExpr := t.expression()
 		eln.AddExpr(addExpr)
-		p = t.peek()
+		p = t.peek(0)
 	}
 	return eln
 }

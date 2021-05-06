@@ -75,7 +75,6 @@ func TestTermNode(t *testing.T) {
 }
 
 var exprCases = []testCase{
-	//{"Simple", "0", false},
 	{"Two operands", "a + 0", false},
 	{"More operands", "a + 0 - 1 / 3", false},
 	//Errors
@@ -86,4 +85,23 @@ var exprCases = []testCase{
 func TestExprNode(t *testing.T) {
 	start := func(t *ParseTree) Node { return t.expression() }
 	simpleTest(t, start, exprCases)
+}
+
+var subRoutineCases = []testCase{
+	{"Call without params", "foo()", false},
+	{"Call with one param", "foo(1)", false},
+	{"Call with many params", "foo(1, a, d)", false},
+	{"Call nested", "foo(bar(a))", false},
+	{"Class Mamber without params", "MyClass.Foo()", false},
+	{"Class Mamber with params", "MyClass.Foo(1, 2, a + 3)", false},
+	{"Class Mamber with nester", "MyClass.Foo(bar(a) + 1)", false},
+
+	//Errors
+	{"Wrong parenthesis", "Foo[]", true},
+	{"Wrong commas", "Foo(a + b,)", true},
+}
+
+func TestCallNode(t *testing.T) {
+	start := func(t *ParseTree) Node { return t.subroutineCall() }
+	simpleTest(t, start, subRoutineCases)
 }
