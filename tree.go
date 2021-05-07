@@ -157,6 +157,8 @@ func (t *ParseTree) statements() *StatementsNode {
 			newSt = t.ifStatement()
 		case "while":
 			newSt = t.whileStatement()
+		case "do":
+			newSt = t.doStatement()
 		default:
 			t.errorf("Expected one of statement keywords let/if/while/return")
 		}

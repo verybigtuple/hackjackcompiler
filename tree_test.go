@@ -121,3 +121,47 @@ func TestIfNode(t *testing.T) {
 	start := func(p *ParseTree) Node { return p.ifStatement() }
 	simpleTest(t, start, ifStatementCases)
 }
+
+func TestLetNode(t *testing.T) {
+	letCases := []testCase{
+		{"Regular", "let a = 0;", false},
+		{"Array", "let a[0] = 0;", false},
+		{"Expressions", "let a[foo(1)] = bar(2);", false},
+		// errors
+		{"Wrong end", "let a = 0", true},
+		{"No expression", "let a;", true},
+		{"No expression for array", "let a[0];", true},
+	}
+	start := func(p *ParseTree) Node { return p.letStatement() }
+	simpleTest(t, start, letCases)
+}
+
+func TestWhileNode(t *testing.T) {
+	letCases := []testCase{
+		{"Regular empty statement", "while (true) {}", false},
+		{"Regular with statement", "while (true) {let a = b; do foo();}", false},
+		{"Regular with expression", "while (a | b) {let a = b; do foo();}", false},
+		// errors
+		{"Empty expression", "while ()", true},
+	}
+	start := func(p *ParseTree) Node { return p.whileStatement() }
+	simpleTest(t, start, letCases)
+}
+
+func TestDoNode(t *testing.T) {
+	doCases := []testCase{
+		{"Regular do", "do foo();", false},
+		{"Regular class do", "do MyClass.foo();", false},
+	}
+	start := func(p *ParseTree) Node { return p.doStatement() }
+	simpleTest(t, start, doCases)
+}
+
+func TestReturnNode(t *testing.T) {
+	returnCases := []testCase{
+		{"Regualr empty", "return;", false},
+		{"With return", "return a+b;", false},
+	}
+	start := func(p *ParseTree) Node { return p.returnStatement() }
+	simpleTest(t, start, returnCases)
+}
