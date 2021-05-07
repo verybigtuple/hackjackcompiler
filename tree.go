@@ -194,14 +194,16 @@ func (t *ParseTree) ifStatement() *IfStatementNode {
 	ifSt := t.statements()
 	t.feedToken(TokenSymbol, "}")
 
-	var elseSt *StatementsNode
+	ifs := NewIfStatementNode(ifExpr, ifSt)
+
 	if isTokenOne(t.peek(0), TokenKeyword, "else") {
 		t.feed()
 		t.feedToken(TokenSymbol, "{")
-		elseSt = t.statements()
+		elseSt := t.statements()
 		t.feedToken(TokenSymbol, "}")
+		ifs.AddElse(elseSt)
 	}
-	return NewIfStatementNode(ifExpr, ifSt, elseSt)
+	return ifs
 }
 
 func (t *ParseTree) whileStatement() *WhileStatementNode {

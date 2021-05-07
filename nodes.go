@@ -122,8 +122,12 @@ type IfStatementNode struct {
 	ElseStat *StatementsNode // can be nil
 }
 
-func NewIfStatementNode(ifExpr *ExpressionNode, ifSt, elseSt *StatementsNode) *IfStatementNode {
-	return &IfStatementNode{NodeIfStatement, ifExpr, ifSt, elseSt}
+func NewIfStatementNode(ifExpr *ExpressionNode, ifSt *StatementsNode) *IfStatementNode {
+	return &IfStatementNode{NodeType: NodeIfStatement, IfExpr: ifExpr, IfStat: ifSt}
+}
+
+func (ifn *IfStatementNode) AddElse(elseSt *StatementsNode) {
+	ifn.ElseStat = elseSt
 }
 
 func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
