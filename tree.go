@@ -222,6 +222,18 @@ func (t *ParseTree) doStatement() *DoStatementNode {
 	return NewDoStatementNode(call)
 }
 
+func (t *ParseTree) returnStatement() *ReturnStatementNode {
+	t.feedToken(TokenKeyword, "return")
+
+	rsn := NewReturnNode()
+	if !isTokenOne(t.peek(0), TokenSymbol, ";") {
+		expr := t.expression()
+		rsn.AddExpr(expr)
+	}
+	t.feedToken(TokenSymbol, ";")
+	return rsn
+}
+
 // term (op term)*
 func (t *ParseTree) expression() *ExpressionNode {
 	term := t.term()

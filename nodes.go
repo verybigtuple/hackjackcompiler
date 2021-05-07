@@ -18,6 +18,7 @@ const (
 	NodeIfStatement
 	NodeWhileStatement
 	NodeDoStatement
+	NodeReturnStatement
 	NodeExpression
 	NodeTerm
 	NodeSubroutineCall
@@ -180,6 +181,27 @@ func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
 	xb.Open("doStatement")
 	defer xb.Close()
 	ds.Call.Xml(xb)
+	xb.WriteSymbol(";")
+}
+
+type ReturnStatementNode struct {
+	NodeType
+	Expr *ExpressionNode
+}
+
+func NewReturnNode() *ReturnStatementNode {
+	return &ReturnStatementNode{NodeType: NodeReturnStatement}
+}
+
+func (rsn *ReturnStatementNode) AddExpr(expr *ExpressionNode) {
+	rsn.Expr = expr
+}
+
+func (rsn *ReturnStatementNode) Xml(xb *XmlBuilder) {
+	xb.WriteKeyword("return")
+	if rsn.Expr != nil {
+		rsn.Expr.Xml(xb)
+	}
 	xb.WriteSymbol(";")
 }
 
