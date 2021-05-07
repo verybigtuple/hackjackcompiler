@@ -68,14 +68,17 @@ type LetStatementNode struct {
 	ValueExp *ExpressionNode
 }
 
-func NewLetStatementNode(varName Token, arrExp *ExpressionNode, valExp *ExpressionNode) *LetStatementNode {
+func NewLetStatementNode(varName Token, valExp *ExpressionNode) *LetStatementNode {
 	lsn := LetStatementNode{
 		NodeType: NodeLetStatement,
 		VarName:  varName,
-		ArrayExp: arrExp,
 		ValueExp: valExp,
 	}
 	return &lsn
+}
+
+func (lsn *LetStatementNode) AddArrayExpr(arrExp *ExpressionNode) {
+	lsn.ArrayExp = arrExp
 }
 
 func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
@@ -270,8 +273,12 @@ type SubroutineCallNode struct {
 	Params         *ExpressionListNode
 }
 
-func NewSubroutineCallNode(clsName Token, sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
+func NewClassSubroutineCallNode(clsName Token, sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
 	return &SubroutineCallNode{NodeSubroutineCall, clsName, sbrName, params}
+}
+
+func NewSubroutineCallNode(sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
+	return &SubroutineCallNode{NodeType: NodeSubroutineCall, SubroutineName: sbrName, Params: params}
 }
 
 func (sc *SubroutineCallNode) Xml(xb *XmlBuilder) {

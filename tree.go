@@ -181,7 +181,10 @@ func (t *ParseTree) letStatement() *LetStatementNode {
 	t.feedToken(TokenSymbol, "=")
 	valExpr := t.expression()
 	t.feedToken(TokenSymbol, ";")
-	return NewLetStatementNode(varNameToken, arrExpr, valExpr)
+
+	lsn := NewLetStatementNode(varNameToken, valExpr)
+	lsn.AddArrayExpr(arrExpr)
+	return lsn
 }
 
 // 'if''('expression')''{'statements'}'('else''{'statements'}')?
@@ -318,7 +321,11 @@ func (t *ParseTree) subroutineCall() *SubroutineCallNode {
 	t.feedToken(TokenSymbol, "(")
 	params := t.expressionList()
 	t.feedToken(TokenSymbol, ")")
-	return NewSubroutineCallNode(className, sbrName, params)
+
+	if className != nil {
+		return NewClassSubroutineCallNode(className, sbrName, params)
+	}
+	return NewSubroutineCallNode(sbrName, params)
 }
 
 // (expression (','expression)* )?
