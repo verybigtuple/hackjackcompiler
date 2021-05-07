@@ -115,7 +115,7 @@ func (t *ParseTree) feedToken(tt TokenType, val string) Token {
 }
 
 // type:'int'|'char'|'boolean'|className
-func (t *ParseTree) feedType() Token {
+func (t *ParseTree) varType() Token {
 	tk := t.next()
 	switch tk.Type() {
 	case TokenKeyword:
@@ -135,7 +135,7 @@ func (t *ParseTree) feedType() Token {
 // varDec:'var' type varName (','varName)*';'
 func (t *ParseTree) varDec() *VarDecNode {
 	t.feedToken(TokenKeyword, "var")
-	vd := NewVarDecNode(t.feedType(), t.feedToken(TokenIdentifier, ""))
+	vd := NewVarDecNode(t.varType(), t.feedToken(TokenIdentifier, ""))
 	for !isTokenOne(t.peek(0), TokenSymbol, ";") {
 		t.feedToken(TokenSymbol, ",")
 		vd.AddId(t.feedToken(TokenIdentifier, ""))
