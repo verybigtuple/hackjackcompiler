@@ -132,6 +132,46 @@ func (t *ParseTree) varType() Token {
 	return tk
 }
 
+func (t *ParseTree) class() *ClassNode {
+	t.feedToken(TokenKeyword, "class")
+	clName := t.feedToken(TokenIdentifier, "")
+	t.feedToken(TokenSymbol, "{")
+
+	cln := NewClassNode(clName)
+	p := t.peek(0)
+	for isTokenAny(p, TokenKeyword, "static", "field") {
+		clv := t.classVarDec()
+		cln.AddVarDecs(clv)
+		p = t.peek(0)
+	}
+
+	for isTokenAny(p, TokenKeyword, "constructor", "function", "method") {
+		sbr := t.subroutineDec()
+		cln.AddSbrDecs(sbr)
+		p = t.peek(0)
+	}
+
+	t.feedToken(TokenSymbol, "}")
+	return cln
+}
+
+func (t *ParseTree) classVarDec() *ClassVarDecNode {
+	p := t.peek(0)
+	var varClass Token
+	if isTokenAny(p, TokenKeyword, "static", "field") {
+		varClass = t.feed()
+	}
+	varType := t.varType()
+	varName := t.feedToken(TokenIdentifier, "")
+	vd := NewClassVarDecNode(varClass, varType, varName)
+	for !isTokenOne(t.peek(0), TokenSymbol, ";") {
+		t.feedToken(TokenSymbol, ",")
+		vd.AddVarNames(t.feedToken(TokenIdentifier, ""))
+	}
+	t.feedToken(TokenSymbol, ";")
+	return vd
+}
+
 func (t *ParseTree) subroutineDec() *SubroutineDecNode {
 	p := t.peek(0)
 	if !isTokenAny(p, TokenKeyword, "constructor", "function", "method") {

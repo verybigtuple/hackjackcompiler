@@ -179,3 +179,17 @@ func TestSubroutineBody(t *testing.T) {
 	start := func(p *ParseTree) Node { return p.subroutineDec() }
 	simpleTest(t, start, suroutineTest)
 }
+
+func TestClassBody(t *testing.T) {
+	classTest := []testCase{
+		{"Empty class", "class MyClass {}", false},
+		{"Class with static", "class MyClass {static int a;}", false},
+		{"Class with fields", "class MyClass {static int a; field string b;}", false},
+		{"Class with subroutines", "class MyClass {method void Foo() {return;}}", false},
+		{"Class with field and subroutines", "class MyClass {static int a; method void Foo() {return;}}", false},
+		// errors
+		{"Wrong parts order", "class MyClass {method void Foo() {return;} static int a;}", true},
+	}
+	start := func(p *ParseTree) Node { return p.class() }
+	simpleTest(t, start, classTest)
+}

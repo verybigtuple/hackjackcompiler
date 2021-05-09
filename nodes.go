@@ -12,7 +12,9 @@ type Node interface {
 }
 
 const (
-	NodeSubroutineDec NodeType = iota
+	NodeClass NodeType = iota
+	NodeClassVarDec
+	NodeSubroutineDec
 	NodeParameterList
 	NodeSubroutineBody
 	NodeVarDec
@@ -27,6 +29,74 @@ const (
 	NodeSubroutineCall
 	NodeExpressionList
 )
+
+type ClassNode struct {
+	NodeType
+	Name   Token
+	VarDec []*ClassVarDecNode
+	SbrDec []*SubroutineDecNode
+}
+
+func NewClassNode(name Token) *ClassNode {
+	return &ClassNode{NodeType: NodeClass, Name: name}
+}
+
+func (cn *ClassNode) AddVarDecs(vd ...*ClassVarDecNode) {
+	cn.VarDec = append(cn.VarDec, vd...)
+}
+
+func (cn *ClassNode) AddSbrDecs(sbrd ...*SubroutineDecNode) {
+	cn.SbrDec = append(cn.SbrDec, sbrd...)
+}
+
+func (cn *ClassNode) Xml(xb *XmlBuilder) {
+	xb.Open("class")
+	defer xb.Close()
+
+	xb.WriteKeyword("class")
+	xb.WriteToken(cn.Name)
+	xb.WriteKeyword("{")
+	for _, vd := range cn.VarDec {
+		vd.Xml(xb)
+	}
+	for _, sd := range cn.SbrDec {
+		sd.Xml(xb)
+	}
+	xb.WriteKeyword("}")
+}
+
+type ClassVarDecNode struct {
+	NodeType
+	VarClass Token
+	VarType  Token
+	VarNames []Token
+}
+
+func NewClassVarDecNode(vc Token, vt Token, name Token) *ClassVarDecNode {
+	cvd := ClassVarDecNode{NodeType: NodeClassVarDec, VarClass: vc, VarType: vt}
+	cvd.VarNames = append(cvd.VarNames, name)
+	return &cvd
+}
+
+func (cvd *ClassVarDecNode) AddVarNames(names ...Token) {
+	cvd.VarNames = append(cvd.VarNames, names...)
+}
+
+func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
+	xb.Open("classVarDec")
+	defer xb.Close()
+
+	xb.WriteToken(cvd.VarClass)
+	xb.WriteToken(cvd.VarType)
+	xb.WriteToken(cvd.VarNames[0])
+	if len(cvd.VarNames) > 1 {
+		for _, n := range cvd.VarNames {
+			xb.WriteSymbol(",")
+			xb.WriteToken(n)
+		}
+	}
+	xb.WriteSymbol(";")
+}
 
 type SubroutineDecNode struct {
 	NodeType
