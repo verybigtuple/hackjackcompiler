@@ -132,6 +132,68 @@ func (t *ParseTree) varType() Token {
 	return tk
 }
 
+func (t *ParseTree) subroutineDec() *SubroutineDecNode {
+	p := t.peek(0)
+	if !isTokenAny(p, TokenKeyword, "constructor", "function", "method") {
+		t.errorf("Expected method class: constructor, function or method")
+	}
+	sbrClass := t.feed()
+
+	var returnType Token
+	p = t.peek(0)
+	if isTokenOne(p, TokenKeyword, "void") {
+		returnType = t.feed()
+	} else {
+		returnType = t.varType()
+	}
+
+	sbrName := t.feedToken(TokenIdentifier, "")
+	t.feedToken(TokenSymbol, "(")
+	paramList := t.parameterList()
+	t.feedToken(TokenSymbol, ")")
+	sbrBody := t.subroutineBody()
+	return NewSubroutineDecNode(sbrClass, returnType, sbrName, paramList, sbrBody)
+}
+
+func (t *ParseTree) parameterList() *ParameterListNode {
+	pln := NewParameterListNode()
+
+	p := t.peek(0)
+	if !isTokenOne(p, TokenSymbol, ")") {
+		firtsType := t.varType()
+		firstVarName := t.feedToken(TokenIdentifier, "")
+		pln.AddParameter(firtsType, firstVarName)
+
+		p = t.peek(0)
+		for isTokenOne(p, TokenSymbol, ",") {
+			t.feed()
+			nextType := t.varType()
+			nextVarName := t.feedToken(TokenIdentifier, "")
+			pln.AddParameter(nextType, nextVarName)
+			p = t.peek(0)
+		}
+	}
+	return pln
+}
+
+func (t *ParseTree) subroutineBody() *SubroutineBodyNode {
+	t.feedToken(TokenSymbol, "{")
+	p := t.peek(0)
+
+	var varDecs []*VarDecNode
+	for isTokenOne(p, TokenKeyword, "var") {
+		vd := t.varDec()
+		varDecs = append(varDecs, vd)
+		p = t.peek(0)
+	}
+	st := t.statements()
+	t.feedToken(TokenSymbol, "}")
+
+	sbn := NewSubroutineBodyNode(st)
+	sbn.AddVarDec(varDecs...)
+	return sbn
+}
+
 // varDec:'var' type varName (','varName)*';'
 func (t *ParseTree) varDec() *VarDecNode {
 	t.feedToken(TokenKeyword, "var")
@@ -159,6 +221,8 @@ func (t *ParseTree) statements() *StatementsNode {
 			newSt = t.whileStatement()
 		case "do":
 			newSt = t.doStatement()
+		case "return":
+			newSt = t.returnStatement()
 		default:
 			t.errorf("Expected one of statement keywords let/if/while/return")
 		}

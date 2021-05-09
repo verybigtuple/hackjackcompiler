@@ -165,3 +165,17 @@ func TestReturnNode(t *testing.T) {
 	start := func(p *ParseTree) Node { return p.returnStatement() }
 	simpleTest(t, start, returnCases)
 }
+
+func TestSubroutineBody(t *testing.T) {
+	suroutineTest := []testCase{
+		{"Void Subroutine", "function void Foo() { return; }", false},
+		{"Int return Subroutine", "function int Foo() { return; }", false},
+		{"Class return Subroutine", "function MyClass Foo() { return; }", false},
+		{"Constructor", "constructor MyClass Foo() { return this; }", false},
+		{"Method", "method int Foo() { return this; }", false},
+		{"Parameters", "method int Foo(int a, int b) { return this; }", false},
+		{"Many statements", "method int Foo(int a, int b) { var int a; return this; }", false},
+	}
+	start := func(p *ParseTree) Node { return p.subroutineDec() }
+	simpleTest(t, start, suroutineTest)
+}

@@ -12,7 +12,10 @@ type Node interface {
 }
 
 const (
-	NodeVarDec NodeType = iota
+	NodeSubroutineDec NodeType = iota
+	NodeParameterList
+	NodeSubroutineBody
+	NodeVarDec
 	NodeStatements
 	NodeLetStatement
 	NodeIfStatement
@@ -24,6 +27,92 @@ const (
 	NodeSubroutineCall
 	NodeExpressionList
 )
+
+type SubroutineDecNode struct {
+	NodeType
+	SbrClass   Token
+	ReturnType Token
+	Name       Token
+	ParamList  *ParameterListNode
+	Body       *SubroutineBodyNode
+}
+
+func NewSubroutineDecNode(sc Token, rt Token, name Token, param *ParameterListNode, b *SubroutineBodyNode) *SubroutineDecNode {
+	return &SubroutineDecNode{NodeSubroutineDec, sc, rt, name, param, b}
+}
+
+func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
+	xb.Open("subroutineDec")
+	defer xb.Close()
+
+	xb.WriteToken(sdn.SbrClass)
+	xb.WriteToken(sdn.ReturnType)
+	xb.WriteToken(sdn.Name)
+	xb.WriteSymbol("(")
+	sdn.ParamList.Xml(xb)
+	xb.WriteSymbol(")")
+	sdn.Body.Xml(xb)
+}
+
+type ParameterListNode struct {
+	NodeType
+	varTypes []Token
+	varNames []Token
+}
+
+func NewParameterListNode() *ParameterListNode {
+	return &ParameterListNode{NodeType: NodeParameterList}
+}
+
+func (pln *ParameterListNode) AddParameter(varType Token, varName Token) {
+	pln.varTypes = append(pln.varTypes, varType)
+	pln.varNames = append(pln.varNames, varName)
+}
+
+func (pln *ParameterListNode) Xml(xb *XmlBuilder) {
+	if len(pln.varTypes) != len(pln.varNames) {
+		panic("ParameterListNode is built wrong")
+	}
+
+	xb.Open("parameterList")
+	defer xb.Close()
+
+	if len(pln.varTypes) > 0 {
+		xb.WriteToken(pln.varTypes[0])
+		xb.WriteToken(pln.varNames[0])
+		for i, t := range pln.varTypes[1:] {
+			xb.WriteSymbol(",")
+			xb.WriteToken(t)
+			xb.WriteToken(pln.varNames[i+1])
+		}
+	}
+}
+
+type SubroutineBodyNode struct {
+	NodeType
+	VarDec []*VarDecNode
+	Statm  *StatementsNode
+}
+
+func NewSubroutineBodyNode(statm *StatementsNode) *SubroutineBodyNode {
+	return &SubroutineBodyNode{NodeType: NodeSubroutineBody, Statm: statm}
+}
+
+func (sbn *SubroutineBodyNode) AddVarDec(vd ...*VarDecNode) {
+	sbn.VarDec = append(sbn.VarDec, vd...)
+}
+
+func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
+	xb.Open("subroutineBody")
+	defer xb.Close()
+
+	xb.WriteSymbol("{")
+	for _, vd := range sbn.VarDec {
+		vd.Xml(xb)
+	}
+	sbn.Statm.Xml(xb)
+	xb.WriteSymbol("}")
+}
 
 type VarDecNode struct {
 	NodeType
