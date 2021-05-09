@@ -16,7 +16,7 @@ type ParseTree struct {
 
 func NewPasreTree(tz *Tokenizer) *ParseTree {
 	pt := ParseTree{tz: tz}
-	pt.root = func(pt *ParseTree) Node { return pt.letStatement() }
+	pt.root = func(pt *ParseTree) Node { return pt.class() }
 	return &pt
 }
 
