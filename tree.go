@@ -8,10 +8,11 @@ import (
 )
 
 type ParseTree struct {
-	tz      *Tokenizer
-	current Token
-	peeked  [2]Token // buffer for peeked values
-	root    func(*ParseTree) Node
+	tz        *Tokenizer
+	current   Token
+	peeked    [2]Token // buffer for peeked values
+	root      func(*ParseTree) Node
+	tkBuilder *XmlBuilder
 }
 
 func NewPasreTree(tz *Tokenizer) *ParseTree {

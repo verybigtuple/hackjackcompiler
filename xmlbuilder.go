@@ -32,15 +32,33 @@ func (s *stack) Pop() string {
 	return val.(string)
 }
 
+var xmlReplacer = strings.NewReplacer(
+	"<", "&lt;",
+	">", "&gt;",
+	"\"", "&quot;",
+	"&", "&amp;",
+)
+
+type Xmler interface {
+	Xml(xb *XmlBuilder)
+}
+
 type XmlBuilder struct {
-	sb *strings.Builder
-	st *stack
+	sb     *strings.Builder
+	st     *stack
+	indent int
 }
 
 func NewXmlBuilder() *XmlBuilder {
 	sb := &strings.Builder{}
 	st := newStack()
-	return &XmlBuilder{sb, st}
+	return &XmlBuilder{sb, st, defaultIndent}
+}
+
+func NewXmlBuilderZero() *XmlBuilder {
+	sb := &strings.Builder{}
+	st := newStack()
+	return &XmlBuilder{sb, st, 0}
 }
 
 func (xb *XmlBuilder) String() string {
@@ -48,7 +66,7 @@ func (xb *XmlBuilder) String() string {
 }
 
 func (xb *XmlBuilder) Open(name string) {
-	spaces := strings.Repeat(" ", xb.st.Len()*defaultIndent)
+	spaces := strings.Repeat(" ", xb.st.Len()*xb.indent)
 	xb.sb.WriteString(spaces)
 	xb.sb.WriteString("<" + name + ">")
 	xb.sb.WriteString("\n")
@@ -57,18 +75,29 @@ func (xb *XmlBuilder) Open(name string) {
 
 func (xb *XmlBuilder) Close() {
 	name := xb.st.Pop()
-	spaces := strings.Repeat(" ", xb.st.Len()*defaultIndent)
+	spaces := strings.Repeat(" ", xb.st.Len()*xb.indent)
 	xb.sb.WriteString(spaces)
 	xb.sb.WriteString("</" + name + ">")
 	xb.sb.WriteString("\n")
 }
 
-func (xb *XmlBuilder) WriteToken(tk Token) {
-	ident := xb.st.Len() * defaultIndent
-	spaces := strings.Repeat(" ", ident)
-	xb.sb.WriteString(spaces)
-	xb.sb.WriteString(tk.GetXml())
+func (xb *XmlBuilder) WriteNode(tag, val string) {
+	spaces := strings.Repeat(" ", xb.st.Len()*xb.indent)
+	nv := xmlReplacer.Replace(val)
+
+	if len(spaces) > 0 {
+		xb.sb.WriteString(spaces)
+	}
+	xb.sb.WriteString("<" + tag + ">")
+	xb.sb.WriteString(" ")
+	xb.sb.WriteString(nv)
+	xb.sb.WriteString(" ")
+	xb.sb.WriteString("</" + tag + ">")
 	xb.sb.WriteString("\n")
+}
+
+func (xb *XmlBuilder) WriteToken(tk Token) {
+	tk.Xml(xb)
 }
 
 func (xb *XmlBuilder) WriteKeyword(v string) {

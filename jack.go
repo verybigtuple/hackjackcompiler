@@ -77,7 +77,18 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlF string) {
 	defer inFile.Close()
 
 	var xmlFile *os.File
-	var xmlFileWriter *bufio.Writer
+
+	tokenizer := NewTokenizer(bufio.NewReader(inFile))
+	for {
+		_, err := tokenizer.ReadToken()
+		if err != nil && !errors.Is(err, io.EOF) {
+			errCh <- fmt.Errorf("File \"%s\" failed during tokenizing: %w", inF, err)
+			return
+		} else if err != nil {
+			break
+		}
+	}
+
 	if isXml {
 		xmlFile, err = os.Create(xmlF)
 		if err != nil {
@@ -92,43 +103,10 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlF string) {
 			}
 		}()
 
-		xmlFileWriter = bufio.NewWriter(xmlFile)
-	}
-
-	tokenizer := NewTokenizer(bufio.NewReader(inFile))
-	if isXml {
-		_, err := xmlFileWriter.WriteString("<tokens>" + "\n")
-		if err != nil {
-			errCh <- err
-			return
-		}
-	}
-	for {
-		token, err := tokenizer.ReadToken()
-		if err != nil && !errors.Is(err, io.EOF) {
-			errCh <- fmt.Errorf("File \"%s\" failed during tokenizing: %w", inF, err)
-			return
-		} else if err != nil {
-			break
-		}
-
-		if isXml {
-			_, err := xmlFileWriter.WriteString(token.GetXml() + "\n")
-			if err != nil {
-				errCh <- err
-				return
-			}
-		}
-	}
-	if isXml {
-		_, err := xmlFileWriter.WriteString("</tokens>" + "\n")
-		if err != nil {
-			errCh <- err
-			return
-		}
+		xmlFileWriter := bufio.NewWriter(xmlFile)
+		tokenizer.WriteXml(xmlFileWriter)
 		xmlFileWriter.Flush()
 	}
-
 }
 
 func getXmlFileName(inF string) string {

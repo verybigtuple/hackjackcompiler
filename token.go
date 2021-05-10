@@ -30,13 +30,6 @@ var keywords = map[string]bool{
 	"this": true,
 }
 
-var xmlReplacer = strings.NewReplacer(
-	"<", "&lt;",
-	">", "&gt;",
-	"\"", "&quot;",
-	"&", "&amp;",
-)
-
 type TokenType int
 
 const (
@@ -69,9 +62,9 @@ func (tt TokenType) String() string {
 }
 
 type Token interface {
+	Xmler
 	Type() TokenType
 	GetValue() string
-	GetXml() string
 }
 
 type defaultToken struct {
@@ -83,9 +76,8 @@ func (dt *defaultToken) GetValue() string {
 	return dt.value
 }
 
-func (dt *defaultToken) GetXml() string {
-	nv := xmlReplacer.Replace(dt.value)
-	return fmt.Sprintf("<%s> %s </%s>", dt.xmlNode, nv, dt.xmlNode)
+func (dt *defaultToken) Xml(xb *XmlBuilder) {
+	xb.WriteNode(dt.xmlNode, dt.value)
 }
 
 type KeywordToken struct {
@@ -150,12 +142,15 @@ func isEOL(ch byte) bool {
 type Tokenizer struct {
 	reader *bufio.Reader
 	buf    strings.Builder
+	xml    *XmlBuilder
 	line   int
 }
 
 func NewTokenizer(r *bufio.Reader) *Tokenizer {
 	sb := strings.Builder{}
-	t := Tokenizer{reader: r, buf: sb}
+	xb := NewXmlBuilderZero()
+	xb.Open("tokens")
+	t := Tokenizer{reader: r, buf: sb, xml: xb}
 	return &t
 }
 
@@ -170,24 +165,41 @@ func (t *Tokenizer) ReadToken() (Token, error) {
 		return nil, err
 	}
 
+	var newTk Token
 	switch {
 	case symbols[first]:
-		return NewSymbolToken(string(first)), nil
+		newTk = NewSymbolToken(string(first))
 	case first == '"':
 		word := t.readStringToken()
-		return NewStringConstantToken(word), nil
+		newTk = NewStringConstantToken(word)
 	case unicode.IsLetter(rune(first)):
 		word, err := t.readWord(first)
-		if keywords[word] {
-			return NewKeywordToken(word), err
+		if err != nil {
+			return nil, err
 		}
-		return NewIdentifierToken(word), err
+		if keywords[word] {
+			newTk = NewKeywordToken(word)
+		} else {
+			newTk = NewIdentifierToken(word)
+		}
 	case unicode.IsNumber(rune(first)):
 		word, err := t.readWord(first)
-		return NewIntegerConstantToken(word), err
+		if err != nil {
+			return nil, err
+		}
+		newTk = NewIntegerConstantToken(word)
 	}
 
+	if newTk != nil {
+		t.xml.WriteToken(newTk)
+		return newTk, nil
+	}
 	return nil, fmt.Errorf("Line: %d, unexpected token", t.line)
+}
+
+func (t *Tokenizer) WriteXml(wr *bufio.Writer) {
+	t.xml.Close()
+	wr.WriteString(t.xml.String())
 }
 
 func (t *Tokenizer) skipSpaces() (ch byte, err error) {
