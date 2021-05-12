@@ -101,11 +101,11 @@ func (xb *XmlBuilder) WriteToken(tk Token) {
 }
 
 func (xb *XmlBuilder) WriteKeyword(v string) {
-	tk := NewKeywordToken(v)
+	tk := NewKeywordToken(v, 0, 0)
 	xb.WriteToken(tk)
 }
 
 func (xb *XmlBuilder) WriteSymbol(v string) {
-	tk := NewSymbolToken(v)
+	tk := NewSymbolToken(v, 0, 0)
 	xb.WriteToken(tk)
 }

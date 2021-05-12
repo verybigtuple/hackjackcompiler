@@ -120,7 +120,7 @@ func (t *ParseTree) feedToken(tt TokenType, val string) Token {
 		t.errorf("Unexpexted token. Expected %v %s", tt, tk.GetValue())
 	}
 	if val != "" && tk.GetValue() != val {
-		t.errorf("Unexpected token value. Expected %s; Got: %s", val, tk.GetValue())
+		t.errorf("Unexpected token value. Expected \"%s\"; Got: \"%s\"", val, tk.GetValue())
 	}
 	return tk
 }

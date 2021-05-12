@@ -46,13 +46,13 @@ func TestSimpleTokens(t *testing.T) {
 		str  string
 		want Token
 	}{
-		{"class", NewKeywordToken("class")},
-		{"a", NewIdentifierToken("a")},
-		{"id", NewIdentifierToken("id")},
-		{"+", NewSymbolToken("+")},
-		{"0", NewIntegerConstantToken("0")},
-		{"100", NewIntegerConstantToken("100")},
-		{"\"string\"", NewStringConstantToken("string")},
+		{"class", NewKeywordToken("class", 0, 0)},
+		{"a", NewIdentifierToken("a", 0, 0)},
+		{"id", NewIdentifierToken("id", 0, 0)},
+		{"+", NewSymbolToken("+", 0, 0)},
+		{"0", NewIntegerConstantToken("0", 0, 0)},
+		{"100", NewIntegerConstantToken("100", 0, 0)},
+		{"\"string\"", NewStringConstantToken("string", 0, 0)},
 	}
 
 	for _, tc := range testCases {
@@ -72,11 +72,11 @@ func TestMultiTokens(t *testing.T) {
 	testCase := "class MyClass();"
 
 	want := []Token{
-		NewKeywordToken("class"),
-		NewIdentifierToken("MyClass"),
-		NewSymbolToken("("),
-		NewSymbolToken(")"),
-		NewSymbolToken(";"),
+		NewKeywordToken("class", 0, 0),
+		NewIdentifierToken("MyClass", 0, 0),
+		NewSymbolToken("(", 0, 0),
+		NewSymbolToken(")", 0, 0),
+		NewSymbolToken(";", 0, 0),
 	}
 
 	getAllTokens(t, testCase, want)
@@ -94,8 +94,8 @@ func TestSpaces(t *testing.T) {
 	}
 
 	want := []Token{
-		NewKeywordToken("class"),
-		NewSymbolToken(";"),
+		NewKeywordToken("class", 0, 0),
+		NewSymbolToken(";", 0, 0),
 	}
 
 	for _, tc := range testCases {
@@ -116,7 +116,7 @@ func TestComments(t *testing.T) {
 		{"Both comments", "// Inline comment\n /* Multi line\ncomment */ \n class // Inline"},
 	}
 
-	want := []Token{NewKeywordToken("class")}
+	want := []Token{NewKeywordToken("class", 0, 0)}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			getAllTokens(t, tc.code, want)
@@ -127,36 +127,50 @@ func TestComments(t *testing.T) {
 func TestStringConstant(t *testing.T) {
 	testCase := "a = \"String Constant\"; b"
 	want := []Token{
-		NewIdentifierToken("a"),
-		NewSymbolToken("="),
-		NewStringConstantToken("String Constant"),
-		NewSymbolToken(";"),
-		NewIdentifierToken("b"),
+		NewIdentifierToken("a", 0, 0),
+		NewSymbolToken("=", 0, 0),
+		NewStringConstantToken("String Constant", 0, 0),
+		NewSymbolToken(";", 0, 0),
+		NewIdentifierToken("b", 0, 0),
 	}
 	getAllTokens(t, testCase, want)
 }
 
-func TestLineCounter(t *testing.T) {
-	testCase := `// Test program
-	/* some comment
-	   some comment 2
-	*/
-	let a = b;
-	function void testFunc() {
-		var int a, b, c;
-		return;
-	} 
-	`
-	want := strings.Count(testCase, "\n")
+
+func TestOneLinePos(t *testing.T) {
+	testCase := "let  a = foo;\nbar;\n"
 	reader := bufio.NewReader(strings.NewReader(testCase))
 	tokenizer := NewTokenizer(reader)
 
-	for {
-		if _, err := tokenizer.ReadToken(); err != nil {
-			break
-		}
+	want := [...]struct {
+		val  string
+		line int
+		pos  int
+	}{
+		{"let", 1, 1},
+		{"a", 1, 6},
+		{"=", 1, 8},
+		{"foo", 1, 10},
+		{";", 1, 13},
+		{"bar", 2, 1},
+		{";", 2, 4},
 	}
-	if tokenizer.line != want {
-		t.Fatalf("Got %d lines; want %d", tokenizer.line, want)
+
+	for _, w := range want {
+		t.Run(w.val, func(t *testing.T) {
+			tk, err := tokenizer.ReadToken()
+			if err != nil && errors.Is(err, io.EOF) {
+				t.Fatal("Unexpected EOF")
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error %v", err)
+			}
+			if w.line != tk.Line() {
+				t.Errorf("Wanted line %d; Got %d", w.line, tk.Line())
+			}
+			if w.pos != tk.Pos() {
+				t.Errorf("Wanted pos %d; Got %d", w.pos, tk.Pos())
+			}
+		})
 	}
 }
