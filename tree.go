@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -8,16 +9,16 @@ import (
 )
 
 type ParseTree struct {
-	tz        *Tokenizer
-	current   Token
-	peeked    [2]Token // buffer for peeked values
-	root      func(*ParseTree) Node
-	tkBuilder *XmlBuilder
+	tz             *Tokenizer
+	current        Token
+	peeked         [2]Token // buffer for peeked values
+	rootNodeParser func(*ParseTree) Node
+	root           Node
 }
 
 func NewPasreTree(tz *Tokenizer) *ParseTree {
 	pt := ParseTree{tz: tz}
-	pt.root = func(pt *ParseTree) Node { return pt.class() }
+	pt.rootNodeParser = func(pt *ParseTree) Node { return pt.class() }
 	return &pt
 }
 
@@ -35,10 +36,19 @@ func (t *ParseTree) errorf(format string, args ...interface{}) {
 	panic(fmt.Errorf(format, args...))
 }
 
-func (t *ParseTree) Parse() (root Node, err error) {
+func (t *ParseTree) Parse() (rootNode Node, err error) {
 	defer t.recover(&err)
-	root = t.root(t)
+	t.root = t.rootNodeParser(t)
+	rootNode = t.root
 	return
+}
+
+func (t *ParseTree) WriteXml(wb *bufio.Writer) {
+	if t.root != nil {
+		xb := NewXmlBuilder()
+		t.root.Xml(xb)
+		wb.WriteString(xb.String())
+	}
 }
 
 func (t *ParseTree) next() Token {

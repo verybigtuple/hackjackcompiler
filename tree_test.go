@@ -18,7 +18,7 @@ func simpleTest(t *testing.T, start func(*ParseTree) Node, cases []testCase) {
 			reader := bufio.NewReader(strings.NewReader(tc.code))
 			tz := NewTokenizer(reader)
 			pt := NewPasreTree(tz)
-			pt.root = start
+			pt.rootNodeParser = start
 			_, err := pt.Parse()
 			if !tc.hasError && err != nil {
 				t.Errorf("Got error: %v", err)
