@@ -62,12 +62,12 @@ func getJackFiles(dir string) ([]string, error) {
 	return matched, nil
 }
 
-func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlF string) {
+func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTreeF string) {
 	defer func() {
 		wg.Done()
 	}()
 
-	isXml := xmlF != ""
+	isXml := xmlTkF != ""
 
 	inFile, err := os.Open(inF)
 	if err != nil {
@@ -76,42 +76,44 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlF string) {
 	}
 	defer inFile.Close()
 
-	var xmlFile *os.File
+	var xmlTkFile *os.File
 
 	tokenizer := NewTokenizer(bufio.NewReader(inFile))
-	for {
-		_, err := tokenizer.ReadToken()
-		if err != nil && !errors.Is(err, io.EOF) {
-			errCh <- fmt.Errorf("File \"%s\" failed during tokenizing: %w", inF, err)
-			return
-		} else if err != nil {
-			break
-		}
+	parser := NewPasreTree(tokenizer)
+	_, err = parser.Parse()
+	if err != nil && !errors.Is(err, io.EOF) {
+		errCh <- fmt.Errorf("File \"%s\" failed during parsing: %w", inF, err)
+		return
 	}
 
 	if isXml {
-		xmlFile, err = os.Create(xmlF)
+		xmlTkFile, err = os.Create(xmlTkF)
 		if err != nil {
 			errCh <- err
 			return
 		}
 		defer func() {
-			errClose := xmlFile.Close()
+			errClose := xmlTkFile.Close()
 			if errClose != nil {
 				errCh <- errClose
 				return
 			}
 		}()
 
-		xmlFileWriter := bufio.NewWriter(xmlFile)
+		xmlFileWriter := bufio.NewWriter(xmlTkFile)
 		tokenizer.WriteXml(xmlFileWriter)
 		xmlFileWriter.Flush()
 	}
 }
 
-func getXmlFileName(inF string) string {
+func getTokenXmlFileName(inF string) string {
 	fn := strings.TrimSuffix(inF, filepath.Ext(inF))
 	return fn + "T.out.xml"
+}
+
+func getParserXmlFileName(inF string) string {
+	fn := strings.TrimSuffix(inF, filepath.Ext(inF))
+	return fn + ".out.xml"
 }
 
 func gatherErrs(wg *sync.WaitGroup, errCh <-chan error) []error {
@@ -150,14 +152,15 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	for _, inF := range inFiles {
-		var xmlF string
+		var xmlTkF, xmlTreeF string
 		fmt.Printf("Reading the file \"%s\"\n", inF)
 		if isXml {
-			xmlF = getXmlFileName(inF)
-			fmt.Printf("Saving results into \"%s\"\n", xmlF)
+			xmlTkF = getTokenXmlFileName(inF)
+			xmlTreeF = getParserXmlFileName(inF)
+			fmt.Printf("Saving results into \"%s\" and \"%s\"\n", xmlTkF, xmlTreeF)
 		}
 		wg.Add(1)
-		go processJackFile(wg, errCh, inF, xmlF)
+		go processJackFile(wg, errCh, inF, xmlTkF, xmlTreeF)
 	}
 
 	errs := gatherErrs(wg, errCh)
