@@ -62,6 +62,25 @@ func getJackFiles(dir string) ([]string, error) {
 	return matched, nil
 }
 
+func writeXmlFile(xmlF string, ser XmlSerializer) (err error) {
+	var xmlFile *os.File
+	xmlFile, err = os.Create(xmlTkF)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		errClose := xmlFile.Close()
+		if errClose != nil {
+			err = errClose
+		}
+	}()
+
+	xmlFileWriter := bufio.NewWriter(xmlFile)
+	ser.WriteXml(xmlFileWriter)
+	xmlFileWriter.Flush()
+	return
+}
+
 func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTreeF string) {
 	defer func() {
 		wg.Done()
@@ -76,8 +95,6 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTre
 	}
 	defer inFile.Close()
 
-	var xmlTkFile *os.File
-
 	tokenizer := NewTokenizer(bufio.NewReader(inFile))
 	parser := NewPasreTree(tokenizer)
 	_, err = parser.Parse()
@@ -87,22 +104,8 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTre
 	}
 
 	if isXml {
-		xmlTkFile, err = os.Create(xmlTkF)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		defer func() {
-			errClose := xmlTkFile.Close()
-			if errClose != nil {
-				errCh <- errClose
-				return
-			}
-		}()
-
-		xmlFileWriter := bufio.NewWriter(xmlTkFile)
-		tokenizer.WriteXml(xmlFileWriter)
-		xmlFileWriter.Flush()
+		writeXmlFile(xmlTkF, tokenizer)
+		writeXmlFile(xmlTreeF, parser)
 	}
 }
 

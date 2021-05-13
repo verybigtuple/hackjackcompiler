@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"container/list"
 	"strings"
 )
@@ -41,6 +42,10 @@ var xmlReplacer = strings.NewReplacer(
 
 type Xmler interface {
 	Xml(xb *XmlBuilder)
+}
+
+type XmlSerializer interface {
+	WriteXml(wb *bufio.Writer)
 }
 
 type XmlBuilder struct {
