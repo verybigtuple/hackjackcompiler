@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -44,25 +45,9 @@ func (tt TokenType) Type() TokenType {
 	return tt
 }
 
-func (tt TokenType) String() string {
-	switch tt {
-	case TokenKeyword:
-		return "Keyword"
-	case TokenIdentifier:
-		return "Identifier"
-	case TokenSymbol:
-		return "Symbol"
-	case TokenStringConst:
-		return "String constant"
-	case TokenIntegerConst:
-		return "Integer constant"
-	default:
-		return fmt.Sprintf("Undefined token type %d", tt)
-	}
-}
-
 type Token interface {
 	Xmler
+	fmt.Stringer
 	Type() TokenType
 	GetValue() string
 	Line() int
@@ -90,6 +75,24 @@ func (dt *defaultToken) Line() int {
 
 func (dt *defaultToken) Pos() int {
 	return dt.pos
+}
+
+func (dt *defaultToken) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(dt.xmlNode)
+	sb.WriteByte(' ')
+	sb.WriteString(dt.value)
+	if dt.line > 0 {
+		sb.WriteByte(' ')
+		sb.WriteString("Ln ")
+		sb.WriteString(strconv.Itoa(dt.line))
+	}
+	if dt.pos > 0 {
+		sb.WriteByte(' ')
+		sb.WriteString("Pos ")
+		sb.WriteString(strconv.Itoa(dt.pos))
+	}
+	return sb.String()
 }
 
 type KeywordToken struct {
@@ -155,15 +158,15 @@ type Tokenizer struct {
 	reader *bufio.Reader
 	buf    strings.Builder
 	xml    *XmlBuilder
-	line   int
-	pos    int
+	Line   int
+	Pos    int
 }
 
 func NewTokenizer(r *bufio.Reader) *Tokenizer {
 	sb := strings.Builder{}
 	xb := NewXmlBuilderZero()
 	xb.Open("tokens")
-	t := Tokenizer{reader: r, buf: sb, xml: xb, line: 1}
+	t := Tokenizer{reader: r, buf: sb, xml: xb, Line: 1}
 	return &t
 }
 
@@ -179,36 +182,36 @@ func (t *Tokenizer) ReadToken() (Token, error) {
 	}
 
 	var newTk Token
-	startPos := t.pos
+	startPos := t.Pos
 	switch {
 	case symbols[first]:
-		newTk = NewSymbolToken(string(first), t.line, startPos)
+		newTk = NewSymbolToken(string(first), t.Line, startPos)
 	case first == '"':
 		word := t.readStringToken()
-		newTk = NewStringConstantToken(word, t.line, startPos)
+		newTk = NewStringConstantToken(word, t.Line, startPos)
 	case unicode.IsLetter(rune(first)):
 		word, err := t.readWord(first)
 		if err != nil {
 			return nil, err
 		}
 		if keywords[word] {
-			newTk = NewKeywordToken(word, t.line, startPos)
+			newTk = NewKeywordToken(word, t.Line, startPos)
 		} else {
-			newTk = NewIdentifierToken(word, t.line, startPos)
+			newTk = NewIdentifierToken(word, t.Line, startPos)
 		}
 	case unicode.IsNumber(rune(first)):
 		word, err := t.readWord(first)
 		if err != nil {
 			return nil, err
 		}
-		newTk = NewIntegerConstantToken(word, t.line, startPos)
+		newTk = NewIntegerConstantToken(word, t.Line, startPos)
 	}
 
 	if newTk != nil {
 		t.xml.WriteToken(newTk)
 		return newTk, nil
 	}
-	return nil, fmt.Errorf("Line: %d, Pos: %d undefined token type", t.line, t.pos)
+	return nil, fmt.Errorf("Line: %d, Pos: %d undefined token type", t.Line, t.Pos)
 }
 
 func (t *Tokenizer) WriteXml(wr *bufio.Writer) {
@@ -219,14 +222,14 @@ func (t *Tokenizer) WriteXml(wr *bufio.Writer) {
 func (t *Tokenizer) nextByte() (byte, error) {
 	b, err := t.reader.ReadByte()
 	if err == nil {
-		t.pos++
+		t.Pos++
 	}
 	return b, err
 }
 
 func (t *Tokenizer) nextLine() {
-	t.line++
-	t.pos = 0
+	t.Line++
+	t.Pos = 0
 }
 
 func (t *Tokenizer) skipSpaces() (ch byte, err error) {

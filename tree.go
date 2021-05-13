@@ -32,6 +32,10 @@ func (t *ParseTree) recover(errp *error) {
 	}
 }
 
+func (t *ParseTree) error(msg string) {
+	t.errorf("%s", msg)
+}
+
 func (t *ParseTree) errorf(format string, args ...interface{}) {
 	panic(fmt.Errorf(format, args...))
 }
@@ -68,7 +72,7 @@ func (t *ParseTree) next() Token {
 		t.errorf("Unexpected token: %v", err)
 	}
 	if err != nil && errors.Is(err, io.EOF) {
-		t.errorf("Unexpected EOF")
+		t.errorf("Unexpected EOF Ln %d", t.tz.Line)
 	}
 	return t.current
 }
@@ -84,7 +88,7 @@ func (t *ParseTree) peek(fw int) Token {
 
 	p, err := t.tz.ReadToken()
 	if err != nil && !errors.Is(err, io.EOF) {
-		t.errorf("Unknown Token: %v", err)
+		t.errorf("Unexpected token: %v", err)
 	}
 	t.peeked[fw] = p
 
@@ -116,11 +120,8 @@ func (t *ParseTree) feed() Token {
 
 func (t *ParseTree) feedToken(tt TokenType, val string) Token {
 	tk := t.next()
-	if tk.Type() != tt {
-		t.errorf("Unexpexted token. Expected %v %s", tt, tk.GetValue())
-	}
-	if val != "" && tk.GetValue() != val {
-		t.errorf("Unexpected token value. Expected \"%s\"; Got: \"%s\"", val, tk.GetValue())
+	if tk.Type() != tt || (val != "" && tk.GetValue() != val) {
+		t.errorf("Unexpexted token %v. Expected value %s", tk, val)
 	}
 	return tk
 }
@@ -132,12 +133,12 @@ func (t *ParseTree) varType() Token {
 	case TokenKeyword:
 		val := tk.GetValue()
 		if val != "int" && val != "char" && val != "boolean" {
-			t.errorf("Unexpected type")
+			t.errorf("Unexpected Jack builin type: %v", tk)
 		}
 	case TokenIdentifier:
 		break
 	default:
-		t.errorf("Unexpected Token for Var type")
+		t.errorf("Unexpected Token for Var type: %v", tk)
 	}
 
 	return tk
@@ -275,7 +276,7 @@ func (t *ParseTree) statements() *StatementsNode {
 		case "return":
 			newSt = t.returnStatement()
 		default:
-			t.errorf("Expected one of statement keywords let/if/while/return")
+			t.errorf("Unexpected statement begin: %v", p)
 		}
 
 		st.AddSt(newSt)
@@ -408,7 +409,7 @@ func (t *ParseTree) term() *TermNode {
 			expr := t.expression()
 			tn = NewArrayTermNode(ident, expr)
 			t.feedToken(TokenSymbol, "]")
-		} else if isTokenOne(pSecond, TokenSymbol, "(") {
+		} else if isTokenAny(pSecond, TokenSymbol, "(", ".") {
 			call := t.subroutineCall() // Call will feed Identifier and ( itself
 			tn = NewCallTermNode(call)
 		} else {
@@ -416,7 +417,7 @@ func (t *ParseTree) term() *TermNode {
 			tn = NewVarTermNode(ident)
 		}
 	default:
-		t.errorf("Token is not a term: %v %s", pFirst.Type(), pFirst.GetValue())
+		t.errorf("Token is not a term: %v", pFirst)
 	}
 
 	return tn
