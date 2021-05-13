@@ -55,14 +55,14 @@ func (cn *ClassNode) Xml(xb *XmlBuilder) {
 
 	xb.WriteKeyword("class")
 	xb.WriteToken(cn.Name)
-	xb.WriteKeyword("{")
+	xb.WriteSymbol("{")
 	for _, vd := range cn.VarDec {
 		vd.Xml(xb)
 	}
 	for _, sd := range cn.SbrDec {
 		sd.Xml(xb)
 	}
-	xb.WriteKeyword("}")
+	xb.WriteSymbol("}")
 }
 
 type ClassVarDecNode struct {
@@ -88,12 +88,11 @@ func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
 
 	xb.WriteToken(cvd.VarClass)
 	xb.WriteToken(cvd.VarType)
-	xb.WriteToken(cvd.VarNames[0])
-	if len(cvd.VarNames) > 1 {
-		for _, n := range cvd.VarNames {
+	for i, n := range cvd.VarNames {
+		if i > 0 {
 			xb.WriteSymbol(",")
-			xb.WriteToken(n)
-		}
+		}		
+		xb.WriteToken(n)
 	}
 	xb.WriteSymbol(";")
 }
@@ -210,13 +209,13 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 
 	xb.WriteKeyword("var")
 	xb.WriteToken(vdn.VarType)
-	xb.WriteToken(vdn.Ids[0])
-	if len(vdn.Ids) > 1 {
-		for _, id := range vdn.Ids[1:] {
+	for i, id := range vdn.Ids {
+		if i > 0 {
 			xb.WriteSymbol(",")
-			xb.WriteToken(id)
 		}
+		xb.WriteToken(id)
 	}
+
 	xb.WriteSymbol(";")
 }
 
@@ -253,6 +252,7 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	}
 	xb.WriteSymbol("=")
 	lsn.ValueExp.Xml(xb)
+	xb.WriteSymbol(";")
 }
 
 type StatementsNode struct {
@@ -346,6 +346,7 @@ func NewDoStatementNode(call *SubroutineCallNode) *DoStatementNode {
 func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
 	xb.Open("doStatement")
 	defer xb.Close()
+	xb.WriteKeyword("do")
 	ds.Call.Xml(xb)
 	xb.WriteSymbol(";")
 }
@@ -364,6 +365,9 @@ func (rsn *ReturnStatementNode) AddExpr(expr *ExpressionNode) {
 }
 
 func (rsn *ReturnStatementNode) Xml(xb *XmlBuilder) {
+	xb.Open("returnStatement")
+	defer xb.Close()
+
 	xb.WriteKeyword("return")
 	if rsn.Expr != nil {
 		rsn.Expr.Xml(xb)
@@ -420,7 +424,10 @@ func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 	xb.Open("expressionList")
 	defer xb.Close()
 
-	for _, expr := range eln.Exprs {
+	for i, expr := range eln.Exprs {
+		if i > 0 {
+			xb.WriteSymbol(",")
+		}
 		expr.Xml(xb)
 	}
 }
@@ -440,17 +447,15 @@ func NewSubroutineCallNode(sbrName Token, params *ExpressionListNode) *Subroutin
 	return &SubroutineCallNode{NodeType: NodeSubroutineCall, SubroutineName: sbrName, Params: params}
 }
 
-func (sc *SubroutineCallNode) Xml(xb *XmlBuilder) {
-	xb.Open("subroutineCall")
-	defer xb.Close()
-
-	if sc.ClassName != nil {
-		xb.WriteToken(sc.ClassName)
+func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
+	// Due to some reason  Subrooutine call does not have open/close tag
+	if scn.ClassName != nil {
+		xb.WriteToken(scn.ClassName)
 		xb.WriteSymbol(".")
 	}
-	xb.WriteToken(sc.SubroutineName)
+	xb.WriteToken(scn.SubroutineName)
 	xb.WriteSymbol("(")
-	sc.Params.Xml(xb)
+	scn.Params.Xml(xb)
 	xb.WriteSymbol(")")
 }
 
