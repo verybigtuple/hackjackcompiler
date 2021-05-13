@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -30,70 +31,119 @@ var keywords = map[string]bool{
 	"this": true,
 }
 
-var xmlReplacer = strings.NewReplacer(
-	"<", "&lt;",
-	">", "&gt;",
-	"\"", "&quot;",
-	"&", "&amp;",
+type TokenType int
+
+const (
+	TokenKeyword TokenType = iota
+	TokenIdentifier
+	TokenSymbol
+	TokenStringConst
+	TokenIntegerConst
 )
 
+func (tt TokenType) Type() TokenType {
+	return tt
+}
+
 type Token interface {
+	Xmler
+	fmt.Stringer
+	Type() TokenType
 	GetValue() string
-	GetXml() string
+	Line() int
+	Pos() int
 }
 
 type defaultToken struct {
 	value   string
 	xmlNode string
+	line    int
+	pos     int
 }
 
 func (dt *defaultToken) GetValue() string {
 	return dt.value
 }
 
-func (dt *defaultToken) GetXml() string {
-	nv := xmlReplacer.Replace(dt.value)
-	return fmt.Sprintf("<%s> %s </%s>", dt.xmlNode, nv, dt.xmlNode)
+func (dt *defaultToken) Xml(xb *XmlBuilder) {
+	xb.WriteNode(dt.xmlNode, dt.value)
+}
+
+func (dt *defaultToken) Line() int {
+	return dt.line
+}
+
+func (dt *defaultToken) Pos() int {
+	return dt.pos
+}
+
+func (dt *defaultToken) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(dt.xmlNode)
+	sb.WriteByte(' ')
+	sb.WriteString(dt.value)
+	if dt.line > 0 {
+		sb.WriteByte(' ')
+		sb.WriteString("Ln ")
+		sb.WriteString(strconv.Itoa(dt.line))
+	}
+	if dt.pos > 0 {
+		sb.WriteByte(' ')
+		sb.WriteString("Pos ")
+		sb.WriteString(strconv.Itoa(dt.pos))
+	}
+	return sb.String()
 }
 
 type KeywordToken struct {
+	TokenType
 	defaultToken
 }
 
-func NewKeywordToken(value string) Token {
-	return &KeywordToken{defaultToken{value: value, xmlNode: "keyword"}}
+func NewKeywordToken(value string, line, pos int) Token {
+	return &KeywordToken{TokenKeyword, defaultToken{value, "keyword", line, pos}}
 }
 
 type IdentifierToken struct {
+	TokenType
 	defaultToken
 }
 
-func NewIdentifierToken(value string) Token {
-	return &IdentifierToken{defaultToken{value: value, xmlNode: "identifier"}}
+func NewIdentifierToken(value string, line, pos int) Token {
+	return &IdentifierToken{TokenIdentifier, defaultToken{value, "identifier", line, pos}}
 }
 
 type SymbolToken struct {
+	TokenType
 	defaultToken
 }
 
-func NewSymbolToken(value string) Token {
-	return &SymbolToken{defaultToken{value: value, xmlNode: "symbol"}}
+func NewSymbolToken(value string, line, pos int) Token {
+	return &SymbolToken{TokenSymbol, defaultToken{value, "symbol", line, pos}}
 }
 
 type StringConstantToken struct {
+	TokenType
 	defaultToken
 }
 
-func NewStringConstantToken(value string) Token {
-	return &StringConstantToken{defaultToken{value: value, xmlNode: "stringConstant"}}
+func NewStringConstantToken(value string, line, pos int) Token {
+	return &StringConstantToken{
+		TokenStringConst,
+		defaultToken{value, "stringConstant", line, pos},
+	}
 }
 
 type IntegerConstantToken struct {
+	TokenType
 	defaultToken
 }
 
-func NewIntegerConstantToken(value string) Token {
-	return &IntegerConstantToken{defaultToken{value: value, xmlNode: "integerConstant"}}
+func NewIntegerConstantToken(value string, line, pos int) Token {
+	return &IntegerConstantToken{
+		TokenIntegerConst,
+		defaultToken{value, "integerConstant", line, pos},
+	}
 }
 
 func isSpace(ch byte) bool {
@@ -107,12 +157,16 @@ func isEOL(ch byte) bool {
 type Tokenizer struct {
 	reader *bufio.Reader
 	buf    strings.Builder
-	line   int
+	xml    *XmlBuilder
+	Line   int
+	Pos    int
 }
 
 func NewTokenizer(r *bufio.Reader) *Tokenizer {
 	sb := strings.Builder{}
-	t := Tokenizer{reader: r, buf: sb}
+	xb := NewXmlBuilderZero()
+	xb.Open("tokens")
+	t := Tokenizer{reader: r, buf: sb, xml: xb, Line: 1}
 	return &t
 }
 
@@ -127,31 +181,62 @@ func (t *Tokenizer) ReadToken() (Token, error) {
 		return nil, err
 	}
 
+	var newTk Token
+	startPos := t.Pos
 	switch {
 	case symbols[first]:
-		return NewSymbolToken(string(first)), nil
+		newTk = NewSymbolToken(string(first), t.Line, startPos)
 	case first == '"':
 		word := t.readStringToken()
-		return NewStringConstantToken(word), nil
+		newTk = NewStringConstantToken(word, t.Line, startPos)
 	case unicode.IsLetter(rune(first)):
 		word, err := t.readWord(first)
-		if keywords[word] {
-			return NewKeywordToken(word), err
+		if err != nil {
+			return nil, err
 		}
-		return NewIdentifierToken(word), err
+		if keywords[word] {
+			newTk = NewKeywordToken(word, t.Line, startPos)
+		} else {
+			newTk = NewIdentifierToken(word, t.Line, startPos)
+		}
 	case unicode.IsNumber(rune(first)):
 		word, err := t.readWord(first)
-		return NewIntegerConstantToken(word), err
+		if err != nil {
+			return nil, err
+		}
+		newTk = NewIntegerConstantToken(word, t.Line, startPos)
 	}
 
-	return nil, fmt.Errorf("Line: %d, unexpected token", t.line)
+	if newTk != nil {
+		t.xml.WriteToken(newTk)
+		return newTk, nil
+	}
+	return nil, fmt.Errorf("Line: %d, Pos: %d undefined token type", t.Line, t.Pos)
+}
+
+func (t *Tokenizer) WriteXml(wr *bufio.Writer) {
+	t.xml.Close()
+	wr.WriteString(t.xml.String())
+}
+
+func (t *Tokenizer) nextByte() (byte, error) {
+	b, err := t.reader.ReadByte()
+	if err == nil {
+		t.Pos++
+	}
+	return b, err
+}
+
+func (t *Tokenizer) nextLine() {
+	t.Line++
+	t.Pos = 0
 }
 
 func (t *Tokenizer) skipSpaces() (ch byte, err error) {
 	for {
-		ch, err = t.reader.ReadByte()
+		ch, err = t.nextByte()
 		if isEOL(ch) {
-			t.line++
+			t.nextLine()
 			continue
 		}
 		if !isSpace(ch) {
@@ -181,18 +266,18 @@ func (t *Tokenizer) skipInlineComment() (byte, error) {
 	if err != nil {
 		return 0, err
 	}
-	t.line++
+	t.nextLine()
 	return t.skipSpaces()
 }
 
 func (t *Tokenizer) skipMultilineComment() (after byte, err error) {
 	for {
-		first, err := t.reader.ReadByte()
+		first, err := t.nextByte()
 		if err != nil {
 			return 0, err
 		}
 		if first == '*' {
-			next, err := t.reader.ReadByte()
+			next, err := t.nextByte()
 			if err != nil {
 				return 0, err
 			}
@@ -201,7 +286,7 @@ func (t *Tokenizer) skipMultilineComment() (after byte, err error) {
 			}
 		}
 		if first == '\n' {
-			t.line++
+			t.nextLine()
 		}
 	}
 	return t.skipSpaces()
@@ -242,7 +327,7 @@ func (t *Tokenizer) readWord(fb byte) (string, error) {
 			break
 		}
 		// If peak do not return EOF error, than ReadByte will be ok
-		if ch, _ := t.reader.ReadByte(); ch != 0 {
+		if ch, _ := t.nextByte(); ch != 0 {
 			t.buf.WriteByte(ch)
 		}
 	}
@@ -254,12 +339,12 @@ func (t *Tokenizer) readStringToken() string {
 	t.buf.Reset()
 
 	for {
-		ch, err := t.reader.ReadByte()
+		ch, err := t.nextByte()
 		if err != nil || ch == '"' {
 			break
 		}
 		if ch == '\n' {
-			t.line++
+			t.nextLine()
 		}
 		t.buf.WriteByte(ch)
 	}
