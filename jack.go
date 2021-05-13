@@ -64,7 +64,7 @@ func getJackFiles(dir string) ([]string, error) {
 
 func writeXmlFile(xmlF string, ser XmlSerializer) (err error) {
 	var xmlFile *os.File
-	xmlFile, err = os.Create(xmlTkF)
+	xmlFile, err = os.Create(xmlF)
 	if err != nil {
 		return err
 	}
