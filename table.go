@@ -75,6 +75,10 @@ func (stl *SymbolTableList) CloseTable() {
 	}
 }
 
+func (stl *SymbolTableList) Len() int {
+	return len(stl.list)
+}
+
 func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) error {
 	if len(stl.list) == 0 {
 		panic("Symbol table list is empty")
