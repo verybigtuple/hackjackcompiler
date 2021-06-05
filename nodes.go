@@ -9,6 +9,7 @@ func (nt NodeType) Type() NodeType {
 type Node interface {
 	Type() NodeType
 	Xml(xb *XmlBuilder)
+	Compile(c *Compiler)
 }
 
 const (
@@ -65,6 +66,8 @@ func (cn *ClassNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
+func (cn *ClassNode) Compile(c *Compiler) {}
+
 type ClassVarDecNode struct {
 	NodeType
 	VarClass Token
@@ -91,11 +94,13 @@ func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
 	for i, n := range cvd.VarNames {
 		if i > 0 {
 			xb.WriteSymbol(",")
-		}		
+		}
 		xb.WriteToken(n)
 	}
 	xb.WriteSymbol(";")
 }
+
+func (cvd *ClassVarDecNode) Compile(c *Compiler) {}
 
 type SubroutineDecNode struct {
 	NodeType
@@ -122,6 +127,8 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(")")
 	sdn.Body.Xml(xb)
 }
+
+func (sdn *SubroutineDecNode) Compile(c *Compiler) {}
 
 type ParameterListNode struct {
 	NodeType
@@ -157,6 +164,8 @@ func (pln *ParameterListNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (pln *ParameterListNode) Compile(c *Compiler) {}
+
 type SubroutineBodyNode struct {
 	NodeType
 	VarDec []*VarDecNode
@@ -182,6 +191,8 @@ func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
 	sbn.Statm.Xml(xb)
 	xb.WriteSymbol("}")
 }
+
+func (sbn *SubroutineBodyNode) Compile(c *Compiler) {}
 
 type VarDecNode struct {
 	NodeType
@@ -219,6 +230,8 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
+func (vdn *VarDecNode) Compile(c *Compiler) {}
+
 type LetStatementNode struct {
 	NodeType
 	VarName  Token
@@ -255,6 +268,8 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
+func (lsn *LetStatementNode) Compile(c *Compiler) {}
+
 type StatementsNode struct {
 	NodeType
 	StList []Node
@@ -276,6 +291,8 @@ func (sn *StatementsNode) Xml(xb *XmlBuilder) {
 		s.Xml(xb)
 	}
 }
+
+func (sn *StatementsNode) Compile(c *Compiler) {}
 
 type IfStatementNode struct {
 	NodeType
@@ -311,6 +328,8 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (ifn *IfStatementNode) Compile(c *Compiler) {}
+
 type WhileStatementNode struct {
 	NodeType
 	Expr *ExpressionNode
@@ -334,6 +353,8 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
+func (wsn *WhileStatementNode) Compile(c *Compiler) {}
+
 type DoStatementNode struct {
 	NodeType
 	Call *SubroutineCallNode
@@ -350,6 +371,8 @@ func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
 	ds.Call.Xml(xb)
 	xb.WriteSymbol(";")
 }
+
+func (ds *DoStatementNode) Compile(c *Compiler) {}
 
 type ReturnStatementNode struct {
 	NodeType
@@ -374,6 +397,8 @@ func (rsn *ReturnStatementNode) Xml(xb *XmlBuilder) {
 	}
 	xb.WriteSymbol(";")
 }
+
+func (rsn *ReturnStatementNode) Compile(c *Compiler) {}
 
 type ExpressionNode struct {
 	NodeType
@@ -407,6 +432,8 @@ func (en *ExpressionNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (en *ExpressionNode) Compile(c *Compiler) {}
+
 type ExpressionListNode struct {
 	NodeType
 	Exprs []*ExpressionNode
@@ -431,6 +458,8 @@ func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 		expr.Xml(xb)
 	}
 }
+
+func (eln *ExpressionListNode) Compile(c *Compiler) {}
 
 type SubroutineCallNode struct {
 	NodeType
@@ -458,6 +487,8 @@ func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
 	scn.Params.Xml(xb)
 	xb.WriteSymbol(")")
 }
+
+func (scn *SubroutineCallNode) Compile(c *Compiler) {}
 
 type termNodeType int
 
@@ -533,3 +564,5 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 		panic("Xml is not defined for the type of node")
 	}
 }
+
+func (tn *TermNode) Compile(c *Compiler) {}
