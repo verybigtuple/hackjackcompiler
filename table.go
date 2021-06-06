@@ -79,6 +79,13 @@ func (stl *SymbolTableList) Len() int {
 	return len(stl.list)
 }
 
+func (stl *SymbolTableList) Name() (n string) {
+	if len(stl.list) > 0 {
+		n = stl.list[len(stl.list)-1].Name
+	}
+	return
+}
+
 func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) error {
 	if len(stl.list) == 0 {
 		panic("Symbol table list is empty")
