@@ -66,7 +66,14 @@ func (cn *ClassNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
-func (cn *ClassNode) Compile(c *Compiler) {}
+func (cn *ClassNode) Compile(c *Compiler) {
+	c.SymbolTblList.CreateTable(cn.Name.GetValue())
+	defer c.SymbolTblList.CloseTable()
+
+	for _, sbr := range cn.SbrDec {
+		sbr.Compile(c)
+	}
+}
 
 type ClassVarDecNode struct {
 	NodeType
@@ -104,7 +111,7 @@ func (cvd *ClassVarDecNode) Compile(c *Compiler) {}
 
 type SubroutineDecNode struct {
 	NodeType
-	SbrClass   Token
+	SbrKind    Token
 	ReturnType Token
 	Name       Token
 	ParamList  *ParameterListNode
@@ -119,7 +126,7 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 	xb.Open("subroutineDec")
 	defer xb.Close()
 
-	xb.WriteToken(sdn.SbrClass)
+	xb.WriteToken(sdn.SbrKind)
 	xb.WriteToken(sdn.ReturnType)
 	xb.WriteToken(sdn.Name)
 	xb.WriteSymbol("(")
@@ -128,7 +135,15 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 	sdn.Body.Xml(xb)
 }
 
-func (sdn *SubroutineDecNode) Compile(c *Compiler) {}
+func (sdn *SubroutineDecNode) Compile(c *Compiler) {
+	fn := c.SymbolTblList.Name() + "." + sdn.Name.GetValue()
+	c.SymbolTblList.CreateTable(fn)
+	defer c.SymbolTblList.CloseTable()
+
+	c.Function(fn, sdn.Body.LocalVarLen())
+	sdn.ParamList.Compile(c)
+	sdn.Body.Compile(c)
+}
 
 type ParameterListNode struct {
 	NodeType
@@ -164,7 +179,12 @@ func (pln *ParameterListNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (pln *ParameterListNode) Compile(c *Compiler) {}
+func (pln *ParameterListNode) Compile(c *Compiler) {
+	for i, vt := range pln.varTypes {
+		vn := pln.varNames[i]
+		c.SymbolTblList.AddVar(Arg, vt.GetValue(), vn.GetValue())
+	}
+}
 
 type SubroutineBodyNode struct {
 	NodeType
@@ -180,6 +200,10 @@ func (sbn *SubroutineBodyNode) AddVarDec(vd ...*VarDecNode) {
 	sbn.VarDec = append(sbn.VarDec, vd...)
 }
 
+func (sbn *SubroutineBodyNode) LocalVarLen() int {
+	return len(sbn.VarDec)
+}
+
 func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
 	xb.Open("subroutineBody")
 	defer xb.Close()
@@ -192,7 +216,12 @@ func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
-func (sbn *SubroutineBodyNode) Compile(c *Compiler) {}
+func (sbn *SubroutineBodyNode) Compile(c *Compiler) {
+	for _, vd := range sbn.VarDec {
+		vd.Compile(c)
+	}
+	sbn.Statm.Compile(c)
+}
 
 type VarDecNode struct {
 	NodeType
@@ -230,7 +259,11 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (vdn *VarDecNode) Compile(c *Compiler) {}
+func (vdn *VarDecNode) Compile(c *Compiler) {
+	for _, id := range vdn.Ids {
+		c.SymbolTblList.AddVar(Local, vdn.VarType.GetValue(), id.GetValue())
+	}
+}
 
 type LetStatementNode struct {
 	NodeType
@@ -292,7 +325,11 @@ func (sn *StatementsNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (sn *StatementsNode) Compile(c *Compiler) {}
+func (sn *StatementsNode) Compile(c *Compiler) {
+	for _, st := range sn.StList {
+		st.Compile(c)
+	}
+}
 
 type IfStatementNode struct {
 	NodeType
@@ -372,7 +409,11 @@ func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (ds *DoStatementNode) Compile(c *Compiler) {}
+func (ds *DoStatementNode) Compile(c *Compiler) {
+	ds.Call.Compile(c)
+	// Clean return from function
+	c.Pop(TempSegm, "0")
+}
 
 type ReturnStatementNode struct {
 	NodeType
@@ -398,7 +439,14 @@ func (rsn *ReturnStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (rsn *ReturnStatementNode) Compile(c *Compiler) {}
+func (rsn *ReturnStatementNode) Compile(c *Compiler) {
+	if rsn.Expr != nil {
+		rsn.Expr.Compile(c)
+	} else {
+		c.Push(ConstSegm, "0")
+	}
+	c.Return()
+}
 
 type ExpressionNode struct {
 	NodeType
@@ -432,7 +480,19 @@ func (en *ExpressionNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (en *ExpressionNode) Compile(c *Compiler) {}
+func (en *ExpressionNode) Compile(c *Compiler) {
+	if len(en.ops) != len(en.opTerms) {
+		panic("Expression node is build wrong in operations and terms")
+	}
+
+	en.term.Compile(c)
+	if len(en.ops) > 0 {
+		for i, op := range en.ops {
+			en.opTerms[i].Compile(c)
+			c.Op(op.GetValue())
+		}
+	}
+}
 
 type ExpressionListNode struct {
 	NodeType
@@ -447,6 +507,10 @@ func (eln *ExpressionListNode) AddExpr(expr *ExpressionNode) {
 	eln.Exprs = append(eln.Exprs, expr)
 }
 
+func (eln *ExpressionListNode) Len() int {
+	return len(eln.Exprs)
+}
+
 func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 	xb.Open("expressionList")
 	defer xb.Close()
@@ -459,7 +523,11 @@ func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (eln *ExpressionListNode) Compile(c *Compiler) {}
+func (eln *ExpressionListNode) Compile(c *Compiler) {
+	for _, expr := range eln.Exprs {
+		expr.Compile(c)
+	}
+}
 
 type SubroutineCallNode struct {
 	NodeType
@@ -488,12 +556,25 @@ func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(")")
 }
 
-func (scn *SubroutineCallNode) Compile(c *Compiler) {}
+func (scn *SubroutineCallNode) Compile(c *Compiler) {
+	scn.Params.Compile(c)
+
+	var name string
+	if scn.ClassName != nil {
+		name = scn.ClassName.GetValue() + "." + scn.SubroutineName.GetValue()
+	} else {
+		name = scn.SubroutineName.GetValue()
+	}
+
+	ac := scn.Params.Len()
+	c.Call(name, ac)
+}
 
 type termNodeType int
 
 const (
 	termNodeConst termNodeType = iota
+	termNodeIntConst
 	termNodeVar
 	termNodeArray
 	termNodeExpr
@@ -569,4 +650,11 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (tn *TermNode) Compile(c *Compiler) {}
+func (tn *TermNode) Compile(c *Compiler) {
+	switch tn.termType {
+	case termNodeIntConst:
+		c.Push(ConstSegm, tn.jConst.GetValue())
+	case termNodeExpr:
+		tn.exp.Compile(c)
+	}
+}
