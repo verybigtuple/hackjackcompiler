@@ -9,6 +9,7 @@ func (nt NodeType) Type() NodeType {
 type Node interface {
 	Type() NodeType
 	Xml(xb *XmlBuilder)
+	Compile(c *Compiler)
 }
 
 const (
@@ -65,6 +66,15 @@ func (cn *ClassNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
+func (cn *ClassNode) Compile(c *Compiler) {
+	c.SymbolTblList.CreateTable(cn.Name.GetValue())
+	defer c.SymbolTblList.CloseTable()
+
+	for _, sbr := range cn.SbrDec {
+		sbr.Compile(c)
+	}
+}
+
 type ClassVarDecNode struct {
 	NodeType
 	VarClass Token
@@ -91,15 +101,17 @@ func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
 	for i, n := range cvd.VarNames {
 		if i > 0 {
 			xb.WriteSymbol(",")
-		}		
+		}
 		xb.WriteToken(n)
 	}
 	xb.WriteSymbol(";")
 }
 
+func (cvd *ClassVarDecNode) Compile(c *Compiler) {}
+
 type SubroutineDecNode struct {
 	NodeType
-	SbrClass   Token
+	SbrKind    Token
 	ReturnType Token
 	Name       Token
 	ParamList  *ParameterListNode
@@ -114,13 +126,23 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 	xb.Open("subroutineDec")
 	defer xb.Close()
 
-	xb.WriteToken(sdn.SbrClass)
+	xb.WriteToken(sdn.SbrKind)
 	xb.WriteToken(sdn.ReturnType)
 	xb.WriteToken(sdn.Name)
 	xb.WriteSymbol("(")
 	sdn.ParamList.Xml(xb)
 	xb.WriteSymbol(")")
 	sdn.Body.Xml(xb)
+}
+
+func (sdn *SubroutineDecNode) Compile(c *Compiler) {
+	fn := c.SymbolTblList.Name() + "." + sdn.Name.GetValue()
+	c.SymbolTblList.CreateTable(fn)
+	defer c.SymbolTblList.CloseTable()
+
+	c.Function(fn, sdn.Body.LocalVarLen())
+	sdn.ParamList.Compile(c)
+	sdn.Body.Compile(c)
 }
 
 type ParameterListNode struct {
@@ -157,6 +179,13 @@ func (pln *ParameterListNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (pln *ParameterListNode) Compile(c *Compiler) {
+	for i, vt := range pln.varTypes {
+		vn := pln.varNames[i]
+		c.SymbolTblList.AddVar(Arg, vt.GetValue(), vn.GetValue())
+	}
+}
+
 type SubroutineBodyNode struct {
 	NodeType
 	VarDec []*VarDecNode
@@ -171,6 +200,10 @@ func (sbn *SubroutineBodyNode) AddVarDec(vd ...*VarDecNode) {
 	sbn.VarDec = append(sbn.VarDec, vd...)
 }
 
+func (sbn *SubroutineBodyNode) LocalVarLen() int {
+	return len(sbn.VarDec)
+}
+
 func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
 	xb.Open("subroutineBody")
 	defer xb.Close()
@@ -181,6 +214,13 @@ func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
 	}
 	sbn.Statm.Xml(xb)
 	xb.WriteSymbol("}")
+}
+
+func (sbn *SubroutineBodyNode) Compile(c *Compiler) {
+	for _, vd := range sbn.VarDec {
+		vd.Compile(c)
+	}
+	sbn.Statm.Compile(c)
 }
 
 type VarDecNode struct {
@@ -219,6 +259,12 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
+func (vdn *VarDecNode) Compile(c *Compiler) {
+	for _, id := range vdn.Ids {
+		c.SymbolTblList.AddVar(Local, vdn.VarType.GetValue(), id.GetValue())
+	}
+}
+
 type LetStatementNode struct {
 	NodeType
 	VarName  Token
@@ -255,6 +301,8 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
+func (lsn *LetStatementNode) Compile(c *Compiler) {}
+
 type StatementsNode struct {
 	NodeType
 	StList []Node
@@ -274,6 +322,12 @@ func (sn *StatementsNode) Xml(xb *XmlBuilder) {
 
 	for _, s := range sn.StList {
 		s.Xml(xb)
+	}
+}
+
+func (sn *StatementsNode) Compile(c *Compiler) {
+	for _, st := range sn.StList {
+		st.Compile(c)
 	}
 }
 
@@ -311,6 +365,8 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (ifn *IfStatementNode) Compile(c *Compiler) {}
+
 type WhileStatementNode struct {
 	NodeType
 	Expr *ExpressionNode
@@ -334,6 +390,8 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
+func (wsn *WhileStatementNode) Compile(c *Compiler) {}
+
 type DoStatementNode struct {
 	NodeType
 	Call *SubroutineCallNode
@@ -349,6 +407,12 @@ func (ds *DoStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteKeyword("do")
 	ds.Call.Xml(xb)
 	xb.WriteSymbol(";")
+}
+
+func (ds *DoStatementNode) Compile(c *Compiler) {
+	ds.Call.Compile(c)
+	// Clean return from function
+	c.Pop(TempSegm, "0")
 }
 
 type ReturnStatementNode struct {
@@ -373,6 +437,15 @@ func (rsn *ReturnStatementNode) Xml(xb *XmlBuilder) {
 		rsn.Expr.Xml(xb)
 	}
 	xb.WriteSymbol(";")
+}
+
+func (rsn *ReturnStatementNode) Compile(c *Compiler) {
+	if rsn.Expr != nil {
+		rsn.Expr.Compile(c)
+	} else {
+		c.Push(ConstSegm, "0")
+	}
+	c.Return()
 }
 
 type ExpressionNode struct {
@@ -407,6 +480,20 @@ func (en *ExpressionNode) Xml(xb *XmlBuilder) {
 	}
 }
 
+func (en *ExpressionNode) Compile(c *Compiler) {
+	if len(en.ops) != len(en.opTerms) {
+		panic("Expression node is build wrong in operations and terms")
+	}
+
+	en.term.Compile(c)
+	if len(en.ops) > 0 {
+		for i, op := range en.ops {
+			en.opTerms[i].Compile(c)
+			c.Op(op.GetValue())
+		}
+	}
+}
+
 type ExpressionListNode struct {
 	NodeType
 	Exprs []*ExpressionNode
@@ -420,6 +507,10 @@ func (eln *ExpressionListNode) AddExpr(expr *ExpressionNode) {
 	eln.Exprs = append(eln.Exprs, expr)
 }
 
+func (eln *ExpressionListNode) Len() int {
+	return len(eln.Exprs)
+}
+
 func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 	xb.Open("expressionList")
 	defer xb.Close()
@@ -429,6 +520,12 @@ func (eln *ExpressionListNode) Xml(xb *XmlBuilder) {
 			xb.WriteSymbol(",")
 		}
 		expr.Xml(xb)
+	}
+}
+
+func (eln *ExpressionListNode) Compile(c *Compiler) {
+	for _, expr := range eln.Exprs {
+		expr.Compile(c)
 	}
 }
 
@@ -459,10 +556,25 @@ func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(")")
 }
 
+func (scn *SubroutineCallNode) Compile(c *Compiler) {
+	scn.Params.Compile(c)
+
+	var name string
+	if scn.ClassName != nil {
+		name = scn.ClassName.GetValue() + "." + scn.SubroutineName.GetValue()
+	} else {
+		name = scn.SubroutineName.GetValue()
+	}
+
+	ac := scn.Params.Len()
+	c.Call(name, ac)
+}
+
 type termNodeType int
 
 const (
 	termNodeConst termNodeType = iota
+	termNodeIntConst
 	termNodeVar
 	termNodeArray
 	termNodeExpr
@@ -484,6 +596,10 @@ type TermNode struct {
 
 func NewConstTermNode(jConst Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeConst, jConst: jConst}
+}
+
+func NewIntConstTermNode(intConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, jConst: intConst}
 }
 
 func NewVarTermNode(jVar Token) *TermNode {
@@ -511,7 +627,7 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeConst:
+	case termNodeConst, termNodeIntConst:
 		xb.WriteToken(tn.jConst)
 	case termNodeVar:
 		xb.WriteToken(tn.jVar)
@@ -531,5 +647,14 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 		tn.call.Xml(xb)
 	default:
 		panic("Xml is not defined for the type of node")
+	}
+}
+
+func (tn *TermNode) Compile(c *Compiler) {
+	switch tn.termType {
+	case termNodeIntConst:
+		c.Push(ConstSegm, tn.jConst.GetValue())
+	case termNodeExpr:
+		tn.exp.Compile(c)
 	}
 }
