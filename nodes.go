@@ -517,6 +517,10 @@ func NewConstTermNode(jConst Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeConst, jConst: jConst}
 }
 
+func NewIntConstTermNode(intConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, jConst: intConst}
+}
+
 func NewVarTermNode(jVar Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, jVar: jVar}
 }
@@ -542,7 +546,7 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeConst:
+	case termNodeConst, termNodeIntConst:
 		xb.WriteToken(tn.jConst)
 	case termNodeVar:
 		xb.WriteToken(tn.jVar)

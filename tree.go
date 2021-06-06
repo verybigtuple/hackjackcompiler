@@ -381,7 +381,7 @@ func (t *ParseTree) term() *TermNode {
 	// integerConstant
 	case isTokenType(pFirst, TokenIntegerConst):
 		intToken := t.feed()
-		tn = NewConstTermNode(intToken)
+		tn = NewIntConstTermNode(intToken)
 	// stringConstant
 	case isTokenType(pFirst, TokenStringConst):
 		strToken := t.feed()
