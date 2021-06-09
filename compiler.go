@@ -8,9 +8,24 @@ import (
 type MemSegment string
 
 const (
-	ConstSegm MemSegment = "constant"
-	TempSegm             = "temp"
+	ConstSegm  MemSegment = "constant"
+	LocalSegm             = "local"
+	ArgSegm               = "argument"
+	ThisSegm              = "this"
+	TempSegm              = "temp"
+	StaticSegm            = "static"
 )
+
+var vKinds = map[VarKind]MemSegment{
+	Field:  ThisSegm,
+	Arg:    ArgSegm,
+	Local:  LocalSegm,
+	Static: StaticSegm,
+}
+
+func GetSegment(vk VarKind) MemSegment {
+	return vKinds[vk]
+}
 
 var ops = map[string]string{
 	"+": "add",
