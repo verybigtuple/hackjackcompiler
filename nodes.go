@@ -201,7 +201,11 @@ func (sbn *SubroutineBodyNode) AddVarDec(vd ...*VarDecNode) {
 }
 
 func (sbn *SubroutineBodyNode) LocalVarLen() int {
-	return len(sbn.VarDec)
+	var lvSum int
+	for _, vd := range sbn.VarDec {
+		lvSum += vd.Len()
+	}
+	return lvSum
 }
 
 func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
@@ -241,6 +245,10 @@ func (vdn *VarDecNode) AddId(tk Token) {
 
 func (vdn *VarDecNode) IsClass() bool {
 	return vdn.VarType.Type() == TokenIdentifier
+}
+
+func (vdn *VarDecNode) Len() int {
+	return len(vdn.Ids)
 }
 
 func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
