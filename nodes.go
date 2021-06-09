@@ -365,7 +365,25 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (ifn *IfStatementNode) Compile(c *Compiler) {}
+func (ifn *IfStatementNode) Compile(c *Compiler) {
+	elseLabel, endLabel := c.OpenIf()
+	defer c.CloseIf()
+
+	ifn.IfExpr.Compile(c)
+	c.Op("~")
+	if ifn.ElseStat != nil {
+		c.IfGoto(elseLabel)
+	} else {
+		c.IfGoto(endLabel)
+	}
+	ifn.IfStat.Compile(c)
+	if ifn.ElseStat != nil {
+		c.Goto(endLabel)
+		c.Label(elseLabel)
+		ifn.ElseStat.Compile(c)
+	}
+	c.Label(endLabel)
+}
 
 type WhileStatementNode struct {
 	NodeType
@@ -390,7 +408,18 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
-func (wsn *WhileStatementNode) Compile(c *Compiler) {}
+func (wsn *WhileStatementNode) Compile(c *Compiler) {
+	bLabel, eLabel := c.OpenWhile()
+	defer c.CloseWhile()
+
+	c.Label(bLabel)
+	wsn.Expr.Compile(c)
+	c.Op("~")
+	c.IfGoto(eLabel)
+	wsn.Expr.Compile(c)
+	c.Goto(bLabel)
+	c.Label(eLabel)
+}
 
 type DoStatementNode struct {
 	NodeType
