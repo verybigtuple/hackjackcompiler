@@ -103,20 +103,18 @@ func (c *Compiler) IfGoto(label string) {
 
 // OpenWhile returns 2 label names for beginWhile and endWhile
 func (c *Compiler) OpenWhile() (begin, end string) {
-	fn := strings.ToUpper(c.SymbolTblList.Name())
-	begin = fn + "_WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
-	end = fn + "_WHILE_END_" + strconv.Itoa(c.whileCount)
+	fn := c.SymbolTblList.Name()
+	begin = fn + "$WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
+	end = fn + "$WHILE_END_" + strconv.Itoa(c.whileCount)
+	c.whileCount++
 	return
 }
 
-func (c *Compiler) CloseWhile() {
-	c.whileCount++
-}
-
 func (c *Compiler) OpenIf() (els, end string) {
-	fn := strings.ToUpper(c.SymbolTblList.Name())
-	els = fn + "_ELSE_" + strconv.Itoa(c.whileCount)
-	end = fn + "_IF_END_" + strconv.Itoa(c.whileCount)
+	fn := c.SymbolTblList.Name()
+	els = fn + "$ELSE_" + strconv.Itoa(c.ifCount)
+	end = fn + "$IF_END_" + strconv.Itoa(c.ifCount)
+	c.ifCount++
 	return
 }
 
