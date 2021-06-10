@@ -55,6 +55,10 @@ func (st *SymbolTable) GetVarInfo(name string) (vi VarInfo, err error) {
 	return
 }
 
+func (st *SymbolTable) Count(kind VarKind) int {
+	return st.counter[kind]
+}
+
 type SymbolTableList struct {
 	list []*SymbolTable
 }
@@ -103,4 +107,9 @@ func (stl *SymbolTableList) GetVarInfo(name string) (VarInfo, error) {
 		}
 	}
 	return VarInfo{}, fmt.Errorf("Variable %s is not declared", name)
+}
+
+func (stl *SymbolTableList) Count(kind VarKind) int {
+	tbl := stl.list[len(stl.list)-1]
+	return tbl.Count(kind)
 }
