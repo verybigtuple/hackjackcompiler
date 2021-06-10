@@ -530,7 +530,7 @@ func (en *ExpressionNode) Compile(c *Compiler) {
 	if len(en.ops) > 0 {
 		for i, op := range en.ops {
 			en.opTerms[i].Compile(c)
-			c.Op(op.GetValue())
+			c.BinaryOp(op.GetValue())
 		}
 	}
 }
