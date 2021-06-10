@@ -1,5 +1,7 @@
 package main
 
+import "strconv"
+
 type NodeType int
 
 func (nt NodeType) Type() NodeType {
@@ -201,7 +203,11 @@ func (sbn *SubroutineBodyNode) AddVarDec(vd ...*VarDecNode) {
 }
 
 func (sbn *SubroutineBodyNode) LocalVarLen() int {
-	return len(sbn.VarDec)
+	var lvSum int
+	for _, vd := range sbn.VarDec {
+		lvSum += vd.Len()
+	}
+	return lvSum
 }
 
 func (sbn *SubroutineBodyNode) Xml(xb *XmlBuilder) {
@@ -241,6 +247,10 @@ func (vdn *VarDecNode) AddId(tk Token) {
 
 func (vdn *VarDecNode) IsClass() bool {
 	return vdn.VarType.Type() == TokenIdentifier
+}
+
+func (vdn *VarDecNode) Len() int {
+	return len(vdn.Ids)
 }
 
 func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
@@ -301,7 +311,13 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (lsn *LetStatementNode) Compile(c *Compiler) {}
+func (lsn *LetStatementNode) Compile(c *Compiler) {
+	if lsn.ArrayExp == nil {
+		lsn.ValueExp.Compile(c)
+		vi, _ := c.SymbolTblList.GetVarInfo(lsn.VarName.GetValue())
+		c.Pop(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
+	}
+}
 
 type StatementsNode struct {
 	NodeType
@@ -365,7 +381,24 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 	}
 }
 
-func (ifn *IfStatementNode) Compile(c *Compiler) {}
+func (ifn *IfStatementNode) Compile(c *Compiler) {
+	elseLabel, endLabel := c.OpenIf()
+
+	ifn.IfExpr.Compile(c)
+	c.UnaryOp("~")
+	if ifn.ElseStat != nil {
+		c.IfGoto(elseLabel)
+	} else {
+		c.IfGoto(endLabel)
+	}
+	ifn.IfStat.Compile(c)
+	if ifn.ElseStat != nil {
+		c.Goto(endLabel)
+		c.Label(elseLabel)
+		ifn.ElseStat.Compile(c)
+	}
+	c.Label(endLabel)
+}
 
 type WhileStatementNode struct {
 	NodeType
@@ -390,7 +423,17 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol("}")
 }
 
-func (wsn *WhileStatementNode) Compile(c *Compiler) {}
+func (wsn *WhileStatementNode) Compile(c *Compiler) {
+	bLabel, eLabel := c.OpenWhile()
+
+	c.Label(bLabel)
+	wsn.Expr.Compile(c)
+	c.UnaryOp("~")
+	c.IfGoto(eLabel)
+	wsn.Stat.Compile(c)
+	c.Goto(bLabel)
+	c.Label(eLabel)
+}
 
 type DoStatementNode struct {
 	NodeType
@@ -489,7 +532,7 @@ func (en *ExpressionNode) Compile(c *Compiler) {
 	if len(en.ops) > 0 {
 		for i, op := range en.ops {
 			en.opTerms[i].Compile(c)
-			c.Op(op.GetValue())
+			c.BinaryOp(op.GetValue())
 		}
 	}
 }
@@ -575,6 +618,8 @@ type termNodeType int
 const (
 	termNodeConst termNodeType = iota
 	termNodeIntConst
+	termNodeKeyWordConst // true, false, null
+	termNodeThis         // this
 	termNodeVar
 	termNodeArray
 	termNodeExpr
@@ -602,6 +647,14 @@ func NewIntConstTermNode(intConst Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, jConst: intConst}
 }
 
+func NewKeyWordConstTermNode(jConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, jConst: jConst}
+}
+
+func NewThisConstTermNode(this Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeThis, jConst: this}
+}
+
 func NewVarTermNode(jVar Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, jVar: jVar}
 }
@@ -627,7 +680,7 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeConst, termNodeIntConst:
+	case termNodeConst, termNodeIntConst, termNodeKeyWordConst, termNodeThis:
 		xb.WriteToken(tn.jConst)
 	case termNodeVar:
 		xb.WriteToken(tn.jVar)
@@ -654,7 +707,20 @@ func (tn *TermNode) Compile(c *Compiler) {
 	switch tn.termType {
 	case termNodeIntConst:
 		c.Push(ConstSegm, tn.jConst.GetValue())
+	case termNodeKeyWordConst:
+		c.Push(ConstSegm, "0")
+		if tn.jConst.GetValue() == "true" {
+			c.UnaryOp("~")
+		}
+	case termNodeVar:
+		vi, _ := c.SymbolTblList.GetVarInfo(tn.jVar.GetValue())
+		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
 	case termNodeExpr:
 		tn.exp.Compile(c)
+	case termNodeUnary:
+		tn.unaryTerm.Compile(c)
+		c.UnaryOp(tn.unaryOp.GetValue())
+	case termNodeCall:
+		tn.call.Compile(c)
 	}
 }

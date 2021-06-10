@@ -389,7 +389,10 @@ func (t *ParseTree) term() *TermNode {
 	// keywordConstant
 	case isTokenAny(pFirst, TokenKeyword, "true", "false", "null", "this"):
 		kwToken := t.feed()
-		tn = NewConstTermNode(kwToken)
+		tn = NewKeyWordConstTermNode(kwToken)
+	case isTokenOne(pFirst, TokenKeyword, "this"):
+		kwToken := t.feed()
+		tn = NewThisConstTermNode(kwToken)
 	// unaryOp term
 	case isTokenAny(pFirst, TokenSymbol, "-", "~"):
 		unOpTk := t.feed()

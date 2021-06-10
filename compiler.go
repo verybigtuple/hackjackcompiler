@@ -8,11 +8,26 @@ import (
 type MemSegment string
 
 const (
-	ConstSegm MemSegment = "constant"
-	TempSegm             = "temp"
+	ConstSegm  MemSegment = "constant"
+	LocalSegm             = "local"
+	ArgSegm               = "argument"
+	ThisSegm              = "this"
+	TempSegm              = "temp"
+	StaticSegm            = "static"
 )
 
-var ops = map[string]string{
+var vKinds = map[VarKind]MemSegment{
+	Field:  ThisSegm,
+	Arg:    ArgSegm,
+	Local:  LocalSegm,
+	Static: StaticSegm,
+}
+
+func GetSegment(vk VarKind) MemSegment {
+	return vKinds[vk]
+}
+
+var binaryOps = map[string]string{
 	"+": "add",
 	"-": "sub",
 	"&": "and",
@@ -23,20 +38,27 @@ var ops = map[string]string{
 }
 
 // Operations that should use OS functions
-var sysOps = map[string]string{
+var sysBinaryOps = map[string]string{
 	"*": "Math.multiply",
 	"/": "Math.divide",
 }
 
+var unaryOps = map[string]string{
+	"~": "not",
+	"-": "neg",
+}
+
 type Compiler struct {
 	sb            *strings.Builder
+	whileCount    int
+	ifCount       int
 	SymbolTblList *SymbolTableList
 }
 
 func NewCompiler() *Compiler {
 	stList := NewSymbolTableList()
 	sb := &strings.Builder{}
-	return &Compiler{sb, stList}
+	return &Compiler{sb: sb, SymbolTblList: stList}
 }
 
 func (c *Compiler) String() string {
@@ -63,10 +85,47 @@ func (c *Compiler) Return() {
 	c.sb.WriteString("return \n")
 }
 
-func (c *Compiler) Op(symbol string) {
-	if cmd, ok := ops[symbol]; ok {
+func (c *Compiler) BinaryOp(symbol string) {
+	if cmd, ok := binaryOps[symbol]; ok {
 		c.sb.WriteString(cmd + "\n")
-	} else if sf, ok := sysOps[symbol]; ok {
+	} else if sf, ok := sysBinaryOps[symbol]; ok {
 		c.Call(sf, 2)
 	}
+}
+
+func (c *Compiler) UnaryOp(symbol string) {
+	if cmd, ok := unaryOps[symbol]; ok {
+		c.sb.WriteString(cmd + "\n")
+	} else {
+		panic("Undefined unary op")
+	}
+}
+
+func (c *Compiler) Label(name string) {
+	c.sb.WriteString("label " + name + "\n")
+}
+
+func (c *Compiler) Goto(label string) {
+	c.sb.WriteString("goto " + label + "\n")
+}
+
+func (c *Compiler) IfGoto(label string) {
+	c.sb.WriteString("if-goto " + label + "\n")
+}
+
+// OpenWhile returns 2 label names for beginWhile and endWhile
+func (c *Compiler) OpenWhile() (begin, end string) {
+	fn := c.SymbolTblList.Name()
+	begin = fn + "$WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
+	end = fn + "$WHILE_END_" + strconv.Itoa(c.whileCount)
+	c.whileCount++
+	return
+}
+
+func (c *Compiler) OpenIf() (els, end string) {
+	fn := c.SymbolTblList.Name()
+	els = fn + "$ELSE_" + strconv.Itoa(c.ifCount)
+	end = fn + "$IF_END_" + strconv.Itoa(c.ifCount)
+	c.ifCount++
+	return
 }
