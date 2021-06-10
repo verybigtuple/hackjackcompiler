@@ -309,7 +309,13 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (lsn *LetStatementNode) Compile(c *Compiler) {}
+func (lsn *LetStatementNode) Compile(c *Compiler) {
+	if lsn.ArrayExp == nil {
+		lsn.ValueExp.Compile(c)
+		vi, _ := c.SymbolTblList.GetVarInfo(lsn.VarName.GetValue())
+		c.Pop(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
+	}
+}
 
 type StatementsNode struct {
 	NodeType
