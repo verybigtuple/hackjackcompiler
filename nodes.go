@@ -1,5 +1,7 @@
 package main
 
+import "strconv"
+
 type NodeType int
 
 func (nt NodeType) Type() NodeType {
@@ -616,6 +618,8 @@ type termNodeType int
 const (
 	termNodeConst termNodeType = iota
 	termNodeIntConst
+	termNodeKeyWordConst // true, false, null
+	termNodeThis         // this
 	termNodeVar
 	termNodeArray
 	termNodeExpr
@@ -643,6 +647,14 @@ func NewIntConstTermNode(intConst Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, jConst: intConst}
 }
 
+func NewKeyWordConstTermNode(jConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, jConst: jConst}
+}
+
+func NewThisConstTermNode(this Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeThis, jConst: this}
+}
+
 func NewVarTermNode(jVar Token) *TermNode {
 	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, jVar: jVar}
 }
@@ -668,7 +680,7 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeConst, termNodeIntConst:
+	case termNodeConst, termNodeIntConst, termNodeKeyWordConst, termNodeThis:
 		xb.WriteToken(tn.jConst)
 	case termNodeVar:
 		xb.WriteToken(tn.jVar)
@@ -695,7 +707,20 @@ func (tn *TermNode) Compile(c *Compiler) {
 	switch tn.termType {
 	case termNodeIntConst:
 		c.Push(ConstSegm, tn.jConst.GetValue())
+	case termNodeKeyWordConst:
+		c.Push(ConstSegm, "0")
+		if tn.jConst.GetValue() == "true" {
+			c.UnaryOp("~")
+		}
+	case termNodeVar:
+		vi, _ := c.SymbolTblList.GetVarInfo(tn.jVar.GetValue())
+		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
 	case termNodeExpr:
 		tn.exp.Compile(c)
+	case termNodeUnary:
+		tn.unaryTerm.Compile(c)
+		c.UnaryOp(tn.unaryOp.GetValue())
+	case termNodeCall:
+		tn.call.Compile(c)
 	}
 }
