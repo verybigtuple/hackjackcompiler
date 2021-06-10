@@ -27,7 +27,7 @@ func GetSegment(vk VarKind) MemSegment {
 	return vKinds[vk]
 }
 
-var ops = map[string]string{
+var binaryOps = map[string]string{
 	"+": "add",
 	"-": "sub",
 	"&": "and",
@@ -35,13 +35,17 @@ var ops = map[string]string{
 	"=": "eq",
 	">": "gt",
 	"<": "lt",
-	"~": "not",
 }
 
 // Operations that should use OS functions
-var sysOps = map[string]string{
+var sysBinaryOps = map[string]string{
 	"*": "Math.multiply",
 	"/": "Math.divide",
+}
+
+var unaryOps = map[string]string{
+	"~": "not",
+	"-": "neg",
 }
 
 type Compiler struct {
@@ -81,11 +85,19 @@ func (c *Compiler) Return() {
 	c.sb.WriteString("return \n")
 }
 
-func (c *Compiler) Op(symbol string) {
-	if cmd, ok := ops[symbol]; ok {
+func (c *Compiler) BinaryOp(symbol string) {
+	if cmd, ok := binaryOps[symbol]; ok {
 		c.sb.WriteString(cmd + "\n")
-	} else if sf, ok := sysOps[symbol]; ok {
+	} else if sf, ok := sysBinaryOps[symbol]; ok {
 		c.Call(sf, 2)
+	}
+}
+
+func (c *Compiler) UnaryOp(symbol string) {
+	if cmd, ok := unaryOps[symbol]; ok {
+		c.sb.WriteString(cmd + "\n")
+	} else {
+		panic("Undefined unary op")
 	}
 }
 
@@ -116,8 +128,4 @@ func (c *Compiler) OpenIf() (els, end string) {
 	end = fn + "$IF_END_" + strconv.Itoa(c.ifCount)
 	c.ifCount++
 	return
-}
-
-func (c *Compiler) CloseIf() {
-	c.ifCount++
 }
