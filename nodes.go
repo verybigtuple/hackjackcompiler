@@ -375,10 +375,9 @@ func (ifn *IfStatementNode) Xml(xb *XmlBuilder) {
 
 func (ifn *IfStatementNode) Compile(c *Compiler) {
 	elseLabel, endLabel := c.OpenIf()
-	defer c.CloseIf()
 
 	ifn.IfExpr.Compile(c)
-	c.Op("~")
+	c.UnaryOp("~")
 	if ifn.ElseStat != nil {
 		c.IfGoto(elseLabel)
 	} else {
@@ -418,13 +417,12 @@ func (wsn *WhileStatementNode) Xml(xb *XmlBuilder) {
 
 func (wsn *WhileStatementNode) Compile(c *Compiler) {
 	bLabel, eLabel := c.OpenWhile()
-	defer c.CloseWhile()
 
 	c.Label(bLabel)
 	wsn.Expr.Compile(c)
-	c.Op("~")
+	c.UnaryOp("~")
 	c.IfGoto(eLabel)
-	wsn.Expr.Compile(c)
+	wsn.Stat.Compile(c)
 	c.Goto(bLabel)
 	c.Label(eLabel)
 }
