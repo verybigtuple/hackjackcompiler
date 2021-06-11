@@ -79,28 +79,28 @@ func (cn *ClassNode) Compile(c *Compiler) {
 
 type ClassVarDecNode struct {
 	NodeType
-	VarClass Token
-	VarType  Token
-	VarNames []Token
+	Kind    Token
+	VarType Token
+	Names   []Token
 }
 
 func NewClassVarDecNode(vc Token, vt Token, name Token) *ClassVarDecNode {
-	cvd := ClassVarDecNode{NodeType: NodeClassVarDec, VarClass: vc, VarType: vt}
-	cvd.VarNames = append(cvd.VarNames, name)
+	cvd := ClassVarDecNode{NodeType: NodeClassVarDec, Kind: vc, VarType: vt}
+	cvd.Names = append(cvd.Names, name)
 	return &cvd
 }
 
 func (cvd *ClassVarDecNode) AddVarNames(names ...Token) {
-	cvd.VarNames = append(cvd.VarNames, names...)
+	cvd.Names = append(cvd.Names, names...)
 }
 
 func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
 	xb.Open("classVarDec")
 	defer xb.Close()
 
-	xb.WriteToken(cvd.VarClass)
+	xb.WriteToken(cvd.Kind)
 	xb.WriteToken(cvd.VarType)
-	for i, n := range cvd.VarNames {
+	for i, n := range cvd.Names {
 		if i > 0 {
 			xb.WriteSymbol(",")
 		}
@@ -109,7 +109,18 @@ func (cvd *ClassVarDecNode) Xml(xb *XmlBuilder) {
 	xb.WriteSymbol(";")
 }
 
-func (cvd *ClassVarDecNode) Compile(c *Compiler) {}
+func (cvd *ClassVarDecNode) Compile(c *Compiler) {
+	var vk VarKind
+	if cvd.Kind.GetValue() == "field" {
+		vk = Field
+	} else {
+		vk = Static
+	}
+
+	for _, n := range cvd.Names {
+		c.SymbolTblList.AddVar(vk, cvd.VarType.GetValue(), n.GetValue())
+	}
+}
 
 type SubroutineDecNode struct {
 	NodeType
@@ -138,11 +149,26 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 }
 
 func (sdn *SubroutineDecNode) Compile(c *Compiler) {
-	fn := c.SymbolTblList.Name() + "." + sdn.Name.GetValue()
+	// Get field count for constructor
+	fieldsCount := c.SymbolTblList.Count(Field)
+	className := c.SymbolTblList.Name()
+
+	fn := className + "." + sdn.Name.GetValue()
 	c.SymbolTblList.CreateTable(fn)
 	defer c.SymbolTblList.CloseTable()
 
 	c.Function(fn, sdn.Body.LocalVarLen())
+	if sdn.SbrKind.GetValue() == "constructor" {
+		c.Push(ConstSegm, strconv.Itoa(fieldsCount))
+		c.Call("Memory.alloc", 1)
+		c.Pop(PointerSegm, "0")
+	}
+	if sdn.SbrKind.GetValue() == "method" {
+		c.SymbolTblList.AddVar(Arg, className, "this") // add this as the first argument
+		c.Push(ArgSegm, "0") // Push first arg to stack
+		c.Pop(ThisSegm, "0") // This = arg 0
+	}
+
 	sdn.ParamList.Compile(c)
 	sdn.Body.Compile(c)
 }
