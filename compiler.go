@@ -8,12 +8,13 @@ import (
 type MemSegment string
 
 const (
-	ConstSegm  MemSegment = "constant"
-	LocalSegm             = "local"
-	ArgSegm               = "argument"
-	ThisSegm              = "this"
-	TempSegm              = "temp"
-	StaticSegm            = "static"
+	ConstSegm   MemSegment = "constant"
+	LocalSegm              = "local"
+	ArgSegm                = "argument"
+	ThisSegm               = "this"
+	TempSegm               = "temp"
+	StaticSegm             = "static"
+	PointerSegm            = "pointer"
 )
 
 var vKinds = map[VarKind]MemSegment{
