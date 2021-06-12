@@ -72,6 +72,10 @@ func (cn *ClassNode) Compile(c *Compiler) {
 	c.Tbl.CreateTable(cn.Name.GetValue())
 	defer c.Tbl.CloseTable()
 
+	for _, vd := range cn.VarDec {
+		vd.Compile(c)
+	}
+
 	for _, sbr := range cn.SbrDec {
 		sbr.Compile(c)
 	}
