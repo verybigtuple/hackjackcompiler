@@ -632,7 +632,6 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 	var argCount int
 	if scn.Prefix != nil {
 		prefix := scn.Prefix.GetValue()
-		name = prefix + "." + scn.SubroutineName.GetValue()
 		// If prefix is a var name, then the called function is a method
 		if c.Tbl.IsVar(prefix) {
 			// We should set this as the current var, e,g. circle.Draw() this = circle
@@ -640,6 +639,11 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 			segm := GetSegment(vi.Kind)
 			c.Push(segm, strconv.Itoa(vi.Offset))
 			argCount++
+			// Call it with class name
+			name = vi.Type + "." + scn.SubroutineName.GetValue()
+		} else {
+			// It is a function
+			name = scn.Prefix.GetValue() + "." + scn.SubroutineName.GetValue()
 		}
 	} else {
 		// if there is no prefix, then the method is called inside the class
