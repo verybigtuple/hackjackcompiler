@@ -381,7 +381,7 @@ func (t *ParseTree) term() *TermNode {
 	// integerConstant
 	case isTokenType(pFirst, TokenIntegerConst):
 		intToken := t.feed()
-		tn = NewConstTermNode(intToken)
+		tn = NewIntConstTermNode(intToken)
 	// stringConstant
 	case isTokenType(pFirst, TokenStringConst):
 		strToken := t.feed()
@@ -389,7 +389,10 @@ func (t *ParseTree) term() *TermNode {
 	// keywordConstant
 	case isTokenAny(pFirst, TokenKeyword, "true", "false", "null", "this"):
 		kwToken := t.feed()
-		tn = NewConstTermNode(kwToken)
+		tn = NewKeyWordConstTermNode(kwToken)
+	case isTokenOne(pFirst, TokenKeyword, "this"):
+		kwToken := t.feed()
+		tn = NewThisConstTermNode(kwToken)
 	// unaryOp term
 	case isTokenAny(pFirst, TokenSymbol, "-", "~"):
 		unOpTk := t.feed()

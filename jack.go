@@ -81,6 +81,25 @@ func writeXmlFile(xmlF string, ser XmlSerializer) (err error) {
 	return
 }
 
+func writeVmFile(vmF string, comp *Compiler) (err error) {
+	var vmFile *os.File
+	vmFile, err = os.Create(vmF)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		errClose := vmFile.Close()
+		if errClose != nil {
+			err = errClose
+		}
+	}()
+
+	vmFileWriter := bufio.NewWriter(vmFile)
+	vmFileWriter.WriteString(comp.String())
+	vmFileWriter.Flush()
+	return
+}
+
 func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTreeF string) {
 	defer func() {
 		wg.Done()
@@ -97,7 +116,7 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTre
 
 	tokenizer := NewTokenizer(bufio.NewReader(inFile))
 	parser := NewPasreTree(tokenizer)
-	_, err = parser.Parse()
+	rootTree, err := parser.Parse()
 	if err != nil && !errors.Is(err, io.EOF) {
 		errCh <- fmt.Errorf("File \"%s\" failed during parsing: %w", inF, err)
 		return
@@ -107,6 +126,12 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTre
 		writeXmlFile(xmlTkF, tokenizer)
 		writeXmlFile(xmlTreeF, parser)
 	}
+
+	compiler := NewCompiler()
+	rootTree.Compile(compiler)
+	vmFileName := getVmFileName(inF)
+	fmt.Printf("Saving the vm file \"%s\"", vmFileName)
+	writeVmFile(vmFileName, compiler)
 }
 
 func getTokenXmlFileName(inF string) string {
@@ -117,6 +142,11 @@ func getTokenXmlFileName(inF string) string {
 func getParserXmlFileName(inF string) string {
 	fn := strings.TrimSuffix(inF, filepath.Ext(inF))
 	return fn + ".out.xml"
+}
+
+func getVmFileName(inF string) string {
+	fn := strings.TrimSuffix(inF, filepath.Ext(inF))
+	return fn + ".vm"
 }
 
 func gatherErrs(wg *sync.WaitGroup, errCh <-chan error) []error {
