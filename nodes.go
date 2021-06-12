@@ -644,8 +644,6 @@ func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
 }
 
 func (scn *SubroutineCallNode) Compile(c *Compiler) {
-	scn.Params.Compile(c)
-
 	var name string
 	var argCount int
 	if scn.Prefix != nil {
@@ -656,7 +654,7 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 			vi := c.Tbl.GetVarInfo(prefix)
 			segm := GetSegment(vi.Kind)
 			c.Push(segm, strconv.Itoa(vi.Offset))
-			argCount++
+			argCount = 1
 			// Call it with class name
 			name = vi.Type + "." + scn.SubroutineName.GetValue()
 		} else {
@@ -669,9 +667,10 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 		name = className + "." + scn.SubroutineName.GetValue()
 		// Push this as the first parameter
 		c.Push(PointerSegm, "0")
-		argCount++
+		argCount = 1
 	}
 
+	scn.Params.Compile(c)
 	argCount += scn.Params.Len()
 	c.Call(name, argCount)
 }
