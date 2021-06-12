@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -62,6 +64,30 @@ func NewCompiler() *Compiler {
 	return &Compiler{sb: sb, SymbolTblList: stList}
 }
 
+func (c *Compiler) errorf(format string, args ...interface{}) {
+	panic(fmt.Errorf(format, args...))
+}
+
+func (c *Compiler) error(msg string) {
+	c.errorf("%s", msg)
+}
+
+func (c *Compiler) recover(errp *error) {
+	e := recover()
+	if e != nil {
+		if _, ok := e.(runtime.Error); ok {
+			panic(e)
+		}
+		*errp = e.(error)
+	}
+}
+
+func (c *Compiler) Run(root Node) (err error) {
+	defer c.recover(&err)
+	root.Compile(c)
+	return
+}
+
 func (c *Compiler) String() string {
 	return c.sb.String()
 }
@@ -83,7 +109,7 @@ func (c *Compiler) Call(name string, argsCount int) {
 }
 
 func (c *Compiler) Return() {
-	c.sb.WriteString("return \n")
+	c.sb.WriteString("return\n")
 }
 
 func (c *Compiler) BinaryOp(symbol string) {
@@ -91,6 +117,8 @@ func (c *Compiler) BinaryOp(symbol string) {
 		c.sb.WriteString(cmd + "\n")
 	} else if sf, ok := sysBinaryOps[symbol]; ok {
 		c.Call(sf, 2)
+	} else {
+		c.error("Undefined binary op")
 	}
 }
 
@@ -98,7 +126,7 @@ func (c *Compiler) UnaryOp(symbol string) {
 	if cmd, ok := unaryOps[symbol]; ok {
 		c.sb.WriteString(cmd + "\n")
 	} else {
-		panic("Undefined unary op")
+		c.error("Undefined unary op")
 	}
 }
 
