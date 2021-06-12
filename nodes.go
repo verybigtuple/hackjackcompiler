@@ -170,7 +170,7 @@ func (sdn *SubroutineDecNode) Compile(c *Compiler) {
 	if sdn.SbrKind.GetValue() == "method" {
 		c.Tbl.AddVar(Arg, className, "this") // add this as the first argument
 		c.Push(ArgSegm, "0")                 // Push first arg to stack
-		c.Pop(ThisSegm, "0")                 // This = arg 0
+		c.Pop(PointerSegm, "0")              // This = arg 0
 	}
 
 	sdn.ParamList.Compile(c)
