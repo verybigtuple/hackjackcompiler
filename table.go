@@ -55,6 +55,10 @@ func (st *SymbolTable) GetVarInfo(name string) (vi VarInfo, err error) {
 	return
 }
 
+func (st *SymbolTable) Count(kind VarKind) int {
+	return st.counter[kind]
+}
+
 type SymbolTableList struct {
 	list []*SymbolTable
 }
@@ -62,6 +66,16 @@ type SymbolTableList struct {
 func NewSymbolTableList() *SymbolTableList {
 	list := make([]*SymbolTable, 0)
 	return &SymbolTableList{list}
+}
+
+func (stl *SymbolTableList) find(name string) (VarInfo, error) {
+	for i := len(stl.list) - 1; i >= 0; i-- {
+		tbl := stl.list[i]
+		if vi, err := tbl.GetVarInfo(name); err == nil {
+			return vi, nil
+		}
+	}
+	return VarInfo{}, fmt.Errorf("A variable named \"%s\" was not declared", name)
 }
 
 func (stl *SymbolTableList) CreateTable(name string) {
@@ -79,28 +93,45 @@ func (stl *SymbolTableList) Len() int {
 	return len(stl.list)
 }
 
-func (stl *SymbolTableList) Name() (n string) {
-	if len(stl.list) > 0 {
-		n = stl.list[len(stl.list)-1].Name
+func (stl *SymbolTableList) Name() string {
+	if len(stl.list) == 0 {
+		panic("There is no symbol tabes")
 	}
-	return
+	return stl.list[len(stl.list)-1].Name
 }
 
-func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) error {
+func (stl *SymbolTableList) ParentName() string {
+	if len(stl.list) <= 1 {
+		panic("There is no parent tables")
+	}
+	return stl.list[len(stl.list)-2].Name
+}
+
+func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) {
 	if len(stl.list) == 0 {
 		panic("Symbol table list is empty")
 	}
 	tbl := stl.list[len(stl.list)-1]
 	err := tbl.AddVar(kind, vType, name)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (stl *SymbolTableList) GetVarInfo(name string) (VarInfo, error) {
-	for i := len(stl.list) - 1; i >= 0; i-- {
-		tbl := stl.list[i]
-		if vi, err := tbl.GetVarInfo(name); err == nil {
-			return vi, nil
-		}
+func (stl *SymbolTableList) GetVarInfo(name string) VarInfo {
+	vi, err := stl.find(name)
+	if err != nil {
+		panic(fmt.Errorf("Cannot find variable %s", name))
 	}
-	return VarInfo{}, fmt.Errorf("Variable %s is not declared", name)
+	return vi
+}
+
+func (stl *SymbolTableList) Count(kind VarKind) int {
+	tbl := stl.list[len(stl.list)-1]
+	return tbl.Count(kind)
+}
+
+func (stl *SymbolTableList) IsVar(name string) bool {
+	_, err := stl.find(name)
+	return err == nil
 }

@@ -128,9 +128,12 @@ func processJackFile(wg *sync.WaitGroup, errCh chan<- error, inF, xmlTkF, xmlTre
 	}
 
 	compiler := NewCompiler()
-	rootTree.Compile(compiler)
+	err = compiler.Run(rootTree)
+	if err != nil {
+		errCh <- fmt.Errorf("File \"%s\" failed during compilation: %w", inF, err)
+	}
 	vmFileName := getVmFileName(inF)
-	fmt.Printf("Saving the vm file \"%s\"", vmFileName)
+	fmt.Printf("Saving the vm file \"%s\"\n", vmFileName)
 	writeVmFile(vmFileName, compiler)
 }
 

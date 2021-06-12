@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -8,12 +10,13 @@ import (
 type MemSegment string
 
 const (
-	ConstSegm  MemSegment = "constant"
-	LocalSegm             = "local"
-	ArgSegm               = "argument"
-	ThisSegm              = "this"
-	TempSegm              = "temp"
-	StaticSegm            = "static"
+	ConstSegm   MemSegment = "constant"
+	LocalSegm              = "local"
+	ArgSegm                = "argument"
+	ThisSegm               = "this"
+	TempSegm               = "temp"
+	StaticSegm             = "static"
+	PointerSegm            = "pointer"
 )
 
 var vKinds = map[VarKind]MemSegment{
@@ -49,16 +52,40 @@ var unaryOps = map[string]string{
 }
 
 type Compiler struct {
-	sb            *strings.Builder
-	whileCount    int
-	ifCount       int
-	SymbolTblList *SymbolTableList
+	sb         *strings.Builder
+	whileCount int
+	ifCount    int
+	Tbl        *SymbolTableList
 }
 
 func NewCompiler() *Compiler {
-	stList := NewSymbolTableList()
+	tblList := NewSymbolTableList()
 	sb := &strings.Builder{}
-	return &Compiler{sb: sb, SymbolTblList: stList}
+	return &Compiler{sb: sb, Tbl: tblList}
+}
+
+func (c *Compiler) errorf(format string, args ...interface{}) {
+	panic(fmt.Errorf(format, args...))
+}
+
+func (c *Compiler) error(msg string) {
+	c.errorf("%s", msg)
+}
+
+func (c *Compiler) recover(errp *error) {
+	e := recover()
+	if e != nil {
+		if _, ok := e.(runtime.Error); ok {
+			panic(e)
+		}
+		*errp = e.(error)
+	}
+}
+
+func (c *Compiler) Run(root Node) (err error) {
+	defer c.recover(&err)
+	root.Compile(c)
+	return
 }
 
 func (c *Compiler) String() string {
@@ -82,7 +109,7 @@ func (c *Compiler) Call(name string, argsCount int) {
 }
 
 func (c *Compiler) Return() {
-	c.sb.WriteString("return \n")
+	c.sb.WriteString("return\n")
 }
 
 func (c *Compiler) BinaryOp(symbol string) {
@@ -90,6 +117,8 @@ func (c *Compiler) BinaryOp(symbol string) {
 		c.sb.WriteString(cmd + "\n")
 	} else if sf, ok := sysBinaryOps[symbol]; ok {
 		c.Call(sf, 2)
+	} else {
+		c.error("Undefined binary op")
 	}
 }
 
@@ -97,7 +126,7 @@ func (c *Compiler) UnaryOp(symbol string) {
 	if cmd, ok := unaryOps[symbol]; ok {
 		c.sb.WriteString(cmd + "\n")
 	} else {
-		panic("Undefined unary op")
+		c.error("Undefined unary op")
 	}
 }
 
@@ -115,17 +144,15 @@ func (c *Compiler) IfGoto(label string) {
 
 // OpenWhile returns 2 label names for beginWhile and endWhile
 func (c *Compiler) OpenWhile() (begin, end string) {
-	fn := c.SymbolTblList.Name()
-	begin = fn + "$WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
-	end = fn + "$WHILE_END_" + strconv.Itoa(c.whileCount)
+	begin = "WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
+	end = "WHILE_END_" + strconv.Itoa(c.whileCount)
 	c.whileCount++
 	return
 }
 
 func (c *Compiler) OpenIf() (els, end string) {
-	fn := c.SymbolTblList.Name()
-	els = fn + "$ELSE_" + strconv.Itoa(c.ifCount)
-	end = fn + "$IF_END_" + strconv.Itoa(c.ifCount)
+	els = "ELSE_" + strconv.Itoa(c.ifCount)
+	end = "IF_END_" + strconv.Itoa(c.ifCount)
 	c.ifCount++
 	return
 }
