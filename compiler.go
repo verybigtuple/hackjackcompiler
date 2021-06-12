@@ -14,6 +14,7 @@ const (
 	LocalSegm              = "local"
 	ArgSegm                = "argument"
 	ThisSegm               = "this"
+	ThatSegm               = "that"
 	TempSegm               = "temp"
 	StaticSegm             = "static"
 	PointerSegm            = "pointer"
