@@ -342,10 +342,24 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 }
 
 func (lsn *LetStatementNode) Compile(c *Compiler) {
+	vi := c.Tbl.GetVarInfo(lsn.VarName.GetValue())
+	segm := GetSegment(vi.Kind)
 	if lsn.ArrayExp == nil {
 		lsn.ValueExp.Compile(c)
-		vi := c.Tbl.GetVarInfo(lsn.VarName.GetValue())
-		c.Pop(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
+		c.Pop(segm, strconv.Itoa(vi.Offset))
+	} else {
+		// let a[expr1] = b[expr2]
+		c.Push(segm, strconv.Itoa(vi.Offset))
+		lsn.ArrayExp.Compile(c)
+		c.BinaryOp("+") // Calc address a + expr1 and push it onto the stack
+
+		// Right expression
+		lsn.ValueExp.Compile(c)
+		c.Pop(TempSegm, "0") // Pop it to the temp var
+
+		c.Pop(PointerSegm, "1") // Write a+expr1 addr to THAT
+		c.Push(TempSegm, "0")   // Push temp (expr2) onto the stack
+		c.Pop(ThatSegm, "0")    // Write expr2 from the stack into a + expr1
 	}
 }
 
@@ -692,7 +706,7 @@ func NewIntConstTermNode(intConst Token) *TermNode {
 }
 
 func NewStrConstTermNode(strConst Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, val: strConst}
+	return &TermNode{NodeType: NodeTerm, termType: termNodeStrConst, val: strConst}
 }
 
 func NewKeyWordConstTermNode(jConst Token) *TermNode {
@@ -728,7 +742,7 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeIntConst, termNodeKeyWordConst, termNodeThis, termNodeVar:
+	case termNodeIntConst, termNodeKeyWordConst, termNodeThis, termNodeStrConst:
 		xb.WriteToken(tn.val)
 	case termNodeArray:
 		xb.WriteToken(tn.val)
@@ -770,5 +784,21 @@ func (tn *TermNode) Compile(c *Compiler) {
 		c.UnaryOp(tn.unaryOp.GetValue())
 	case termNodeCall:
 		tn.call.Compile(c)
+	case termNodeStrConst:
+		strLen := len(tn.val.GetValue())
+		c.Push(ConstSegm, strconv.Itoa(strLen))
+		c.Call("String.new", 1) // Create string and return pointer to it on the stack
+		for i := 0; i < strLen; i++ {
+			char := int(tn.val.GetValue()[i])
+			c.Push(ConstSegm, strconv.Itoa(char))
+			c.Call("String.appendChar", 2) // String.appendChar(cretaedString, char)
+		}
+	case termNodeArray:
+		vi := c.Tbl.GetVarInfo(tn.val.GetValue())
+		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset)) // Push arr var
+		tn.arrayIdx.Compile(c)                               // calc index i and push it
+		c.BinaryOp("+")                                      // calc address arr + i
+		c.Pop(PointerSegm, "1")                              // THAT = addr + i
+		c.Push(ThatSegm, "0")                                // Stack = *(addr + i)
 	}
 }
