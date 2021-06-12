@@ -165,8 +165,8 @@ func (sdn *SubroutineDecNode) Compile(c *Compiler) {
 	}
 	if sdn.SbrKind.GetValue() == "method" {
 		c.SymbolTblList.AddVar(Arg, className, "this") // add this as the first argument
-		c.Push(ArgSegm, "0") // Push first arg to stack
-		c.Pop(ThisSegm, "0") // This = arg 0
+		c.Push(ArgSegm, "0")                           // Push first arg to stack
+		c.Pop(ThisSegm, "0")                           // This = arg 0
 	}
 
 	sdn.ParamList.Compile(c)
@@ -642,8 +642,8 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 type termNodeType int
 
 const (
-	termNodeConst termNodeType = iota
-	termNodeIntConst
+	termNodeIntConst termNodeType = iota
+	termNodeStrConst
 	termNodeKeyWordConst // true, false, null
 	termNodeThis         // this
 	termNodeVar
@@ -656,8 +656,7 @@ const (
 type TermNode struct {
 	NodeType
 	termType  termNodeType
-	jConst    Token
-	jVar      Token
+	val       Token
 	arrayIdx  *ExpressionNode
 	exp       *ExpressionNode
 	unaryOp   Token
@@ -665,28 +664,28 @@ type TermNode struct {
 	call      *SubroutineCallNode
 }
 
-func NewConstTermNode(jConst Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeConst, jConst: jConst}
+func NewIntConstTermNode(intConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, val: intConst}
 }
 
-func NewIntConstTermNode(intConst Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeIntConst, jConst: intConst}
+func NewStrConstTermNode(strConst Token) *TermNode {
+	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, val: strConst}
 }
 
 func NewKeyWordConstTermNode(jConst Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, jConst: jConst}
+	return &TermNode{NodeType: NodeTerm, termType: termNodeKeyWordConst, val: jConst}
 }
 
 func NewThisConstTermNode(this Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeThis, jConst: this}
+	return &TermNode{NodeType: NodeTerm, termType: termNodeThis, val: this}
 }
 
 func NewVarTermNode(jVar Token) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, jVar: jVar}
+	return &TermNode{NodeType: NodeTerm, termType: termNodeVar, val: jVar}
 }
 
 func NewArrayTermNode(jVar Token, idx *ExpressionNode) *TermNode {
-	return &TermNode{NodeType: NodeTerm, termType: termNodeArray, jVar: jVar, arrayIdx: idx}
+	return &TermNode{NodeType: NodeTerm, termType: termNodeArray, val: jVar, arrayIdx: idx}
 }
 
 func NewExpressionTermNode(exp *ExpressionNode) *TermNode {
@@ -706,12 +705,10 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 	defer xb.Close()
 
 	switch tn.termType {
-	case termNodeConst, termNodeIntConst, termNodeKeyWordConst, termNodeThis:
-		xb.WriteToken(tn.jConst)
-	case termNodeVar:
-		xb.WriteToken(tn.jVar)
+	case termNodeIntConst, termNodeKeyWordConst, termNodeThis, termNodeVar:
+		xb.WriteToken(tn.val)
 	case termNodeArray:
-		xb.WriteToken(tn.jVar)
+		xb.WriteToken(tn.val)
 		xb.WriteSymbol("[")
 		tn.arrayIdx.Xml(xb)
 		xb.WriteSymbol("]")
@@ -732,14 +729,14 @@ func (tn *TermNode) Xml(xb *XmlBuilder) {
 func (tn *TermNode) Compile(c *Compiler) {
 	switch tn.termType {
 	case termNodeIntConst:
-		c.Push(ConstSegm, tn.jConst.GetValue())
+		c.Push(ConstSegm, tn.val.GetValue())
 	case termNodeKeyWordConst:
 		c.Push(ConstSegm, "0")
-		if tn.jConst.GetValue() == "true" {
+		if tn.val.GetValue() == "true" {
 			c.UnaryOp("~")
 		}
 	case termNodeVar:
-		vi, _ := c.SymbolTblList.GetVarInfo(tn.jVar.GetValue())
+		vi, _ := c.SymbolTblList.GetVarInfo(tn.val.GetValue())
 		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
 	case termNodeExpr:
 		tn.exp.Compile(c)

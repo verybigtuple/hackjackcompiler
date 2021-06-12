@@ -385,11 +385,12 @@ func (t *ParseTree) term() *TermNode {
 	// stringConstant
 	case isTokenType(pFirst, TokenStringConst):
 		strToken := t.feed()
-		tn = NewConstTermNode(strToken)
+		tn = NewStrConstTermNode(strToken)
 	// keywordConstant
-	case isTokenAny(pFirst, TokenKeyword, "true", "false", "null", "this"):
+	case isTokenAny(pFirst, TokenKeyword, "true", "false", "null"):
 		kwToken := t.feed()
 		tn = NewKeyWordConstTermNode(kwToken)
+	// this token (not in grammar)
 	case isTokenOne(pFirst, TokenKeyword, "this"):
 		kwToken := t.feed()
 		tn = NewThisConstTermNode(kwToken)
