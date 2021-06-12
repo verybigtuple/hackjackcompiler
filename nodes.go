@@ -69,8 +69,8 @@ func (cn *ClassNode) Xml(xb *XmlBuilder) {
 }
 
 func (cn *ClassNode) Compile(c *Compiler) {
-	c.SymbolTblList.CreateTable(cn.Name.GetValue())
-	defer c.SymbolTblList.CloseTable()
+	c.Tbl.CreateTable(cn.Name.GetValue())
+	defer c.Tbl.CloseTable()
 
 	for _, sbr := range cn.SbrDec {
 		sbr.Compile(c)
@@ -118,7 +118,7 @@ func (cvd *ClassVarDecNode) Compile(c *Compiler) {
 	}
 
 	for _, n := range cvd.Names {
-		c.SymbolTblList.AddVar(vk, cvd.VarType.GetValue(), n.GetValue())
+		c.Tbl.AddVar(vk, cvd.VarType.GetValue(), n.GetValue())
 	}
 }
 
@@ -150,12 +150,12 @@ func (sdn *SubroutineDecNode) Xml(xb *XmlBuilder) {
 
 func (sdn *SubroutineDecNode) Compile(c *Compiler) {
 	// Get field count for constructor
-	fieldsCount := c.SymbolTblList.Count(Field)
-	className := c.SymbolTblList.Name()
+	fieldsCount := c.Tbl.Count(Field)
+	className := c.Tbl.Name()
 
 	fn := className + "." + sdn.Name.GetValue()
-	c.SymbolTblList.CreateTable(fn)
-	defer c.SymbolTblList.CloseTable()
+	c.Tbl.CreateTable(fn)
+	defer c.Tbl.CloseTable()
 
 	c.Function(fn, sdn.Body.LocalVarLen())
 	if sdn.SbrKind.GetValue() == "constructor" {
@@ -164,9 +164,9 @@ func (sdn *SubroutineDecNode) Compile(c *Compiler) {
 		c.Pop(PointerSegm, "0")
 	}
 	if sdn.SbrKind.GetValue() == "method" {
-		c.SymbolTblList.AddVar(Arg, className, "this") // add this as the first argument
-		c.Push(ArgSegm, "0")                           // Push first arg to stack
-		c.Pop(ThisSegm, "0")                           // This = arg 0
+		c.Tbl.AddVar(Arg, className, "this") // add this as the first argument
+		c.Push(ArgSegm, "0")                 // Push first arg to stack
+		c.Pop(ThisSegm, "0")                 // This = arg 0
 	}
 
 	sdn.ParamList.Compile(c)
@@ -210,7 +210,7 @@ func (pln *ParameterListNode) Xml(xb *XmlBuilder) {
 func (pln *ParameterListNode) Compile(c *Compiler) {
 	for i, vt := range pln.varTypes {
 		vn := pln.varNames[i]
-		c.SymbolTblList.AddVar(Arg, vt.GetValue(), vn.GetValue())
+		c.Tbl.AddVar(Arg, vt.GetValue(), vn.GetValue())
 	}
 }
 
@@ -297,7 +297,7 @@ func (vdn *VarDecNode) Xml(xb *XmlBuilder) {
 
 func (vdn *VarDecNode) Compile(c *Compiler) {
 	for _, id := range vdn.Ids {
-		c.SymbolTblList.AddVar(Local, vdn.VarType.GetValue(), id.GetValue())
+		c.Tbl.AddVar(Local, vdn.VarType.GetValue(), id.GetValue())
 	}
 }
 
@@ -340,7 +340,7 @@ func (lsn *LetStatementNode) Xml(xb *XmlBuilder) {
 func (lsn *LetStatementNode) Compile(c *Compiler) {
 	if lsn.ArrayExp == nil {
 		lsn.ValueExp.Compile(c)
-		vi, _ := c.SymbolTblList.GetVarInfo(lsn.VarName.GetValue())
+		vi := c.Tbl.GetVarInfo(lsn.VarName.GetValue())
 		c.Pop(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
 	}
 }
@@ -736,7 +736,7 @@ func (tn *TermNode) Compile(c *Compiler) {
 			c.UnaryOp("~")
 		}
 	case termNodeVar:
-		vi, _ := c.SymbolTblList.GetVarInfo(tn.val.GetValue())
+		vi := c.Tbl.GetVarInfo(tn.val.GetValue())
 		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
 	case termNodeExpr:
 		tn.exp.Compile(c)

@@ -52,16 +52,16 @@ var unaryOps = map[string]string{
 }
 
 type Compiler struct {
-	sb            *strings.Builder
-	whileCount    int
-	ifCount       int
-	SymbolTblList *SymbolTableList
+	sb         *strings.Builder
+	whileCount int
+	ifCount    int
+	Tbl        *SymbolTableList
 }
 
 func NewCompiler() *Compiler {
-	stList := NewSymbolTableList()
+	tblList := NewSymbolTableList()
 	sb := &strings.Builder{}
-	return &Compiler{sb: sb, SymbolTblList: stList}
+	return &Compiler{sb: sb, Tbl: tblList}
 }
 
 func (c *Compiler) errorf(format string, args ...interface{}) {
@@ -144,7 +144,7 @@ func (c *Compiler) IfGoto(label string) {
 
 // OpenWhile returns 2 label names for beginWhile and endWhile
 func (c *Compiler) OpenWhile() (begin, end string) {
-	fn := c.SymbolTblList.Name()
+	fn := c.Tbl.Name()
 	begin = fn + "$WHILE_BEGIN_" + strconv.Itoa(c.whileCount)
 	end = fn + "$WHILE_END_" + strconv.Itoa(c.whileCount)
 	c.whileCount++
@@ -152,7 +152,7 @@ func (c *Compiler) OpenWhile() (begin, end string) {
 }
 
 func (c *Compiler) OpenIf() (els, end string) {
-	fn := c.SymbolTblList.Name()
+	fn := c.Tbl.Name()
 	els = fn + "$ELSE_" + strconv.Itoa(c.ifCount)
 	end = fn + "$IF_END_" + strconv.Itoa(c.ifCount)
 	c.ifCount++

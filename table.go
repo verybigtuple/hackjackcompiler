@@ -90,23 +90,25 @@ func (stl *SymbolTableList) Name() (n string) {
 	return
 }
 
-func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) error {
+func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) {
 	if len(stl.list) == 0 {
 		panic("Symbol table list is empty")
 	}
 	tbl := stl.list[len(stl.list)-1]
 	err := tbl.AddVar(kind, vType, name)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (stl *SymbolTableList) GetVarInfo(name string) (VarInfo, error) {
+func (stl *SymbolTableList) GetVarInfo(name string) VarInfo {
 	for i := len(stl.list) - 1; i >= 0; i-- {
 		tbl := stl.list[i]
 		if vi, err := tbl.GetVarInfo(name); err == nil {
-			return vi, nil
+			return vi
 		}
 	}
-	return VarInfo{}, fmt.Errorf("Variable %s is not declared", name)
+	panic(fmt.Errorf("Cannot find variable %s", name))
 }
 
 func (stl *SymbolTableList) Count(kind VarKind) int {
