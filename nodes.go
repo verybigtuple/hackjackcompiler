@@ -750,6 +750,8 @@ func (tn *TermNode) Compile(c *Compiler) {
 		if tn.val.GetValue() == "true" {
 			c.UnaryOp("~")
 		}
+	case termNodeThis:
+		c.Push(PointerSegm, "0")
 	case termNodeVar:
 		vi := c.Tbl.GetVarInfo(tn.val.GetValue())
 		c.Push(GetSegment(vi.Kind), strconv.Itoa(vi.Offset))
