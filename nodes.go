@@ -600,13 +600,13 @@ func (eln *ExpressionListNode) Compile(c *Compiler) {
 
 type SubroutineCallNode struct {
 	NodeType
-	ClassName      Token
+	Prefix         Token
 	SubroutineName Token
 	Params         *ExpressionListNode
 }
 
-func NewClassSubroutineCallNode(clsName Token, sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
-	return &SubroutineCallNode{NodeSubroutineCall, clsName, sbrName, params}
+func NewClassSubroutineCallNode(prefix Token, sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
+	return &SubroutineCallNode{NodeSubroutineCall, prefix, sbrName, params}
 }
 
 func NewSubroutineCallNode(sbrName Token, params *ExpressionListNode) *SubroutineCallNode {
@@ -615,8 +615,8 @@ func NewSubroutineCallNode(sbrName Token, params *ExpressionListNode) *Subroutin
 
 func (scn *SubroutineCallNode) Xml(xb *XmlBuilder) {
 	// Due to some reason  Subrooutine call does not have open/close tag
-	if scn.ClassName != nil {
-		xb.WriteToken(scn.ClassName)
+	if scn.Prefix != nil {
+		xb.WriteToken(scn.Prefix)
 		xb.WriteSymbol(".")
 	}
 	xb.WriteToken(scn.SubroutineName)
@@ -629,14 +629,29 @@ func (scn *SubroutineCallNode) Compile(c *Compiler) {
 	scn.Params.Compile(c)
 
 	var name string
-	if scn.ClassName != nil {
-		name = scn.ClassName.GetValue() + "." + scn.SubroutineName.GetValue()
+	var argCount int
+	if scn.Prefix != nil {
+		prefix := scn.Prefix.GetValue()
+		name = prefix + "." + scn.SubroutineName.GetValue()
+		// If prefix is a var name, then the called function is a method
+		if c.Tbl.IsVar(prefix) {
+			// We should set this as the current var, e,g. circle.Draw() this = circle
+			vi := c.Tbl.GetVarInfo(prefix)
+			segm := GetSegment(vi.Kind)
+			c.Push(segm, strconv.Itoa(vi.Offset))
+			argCount++
+		}
 	} else {
-		name = scn.SubroutineName.GetValue()
+		// if there is no prefix, then the method is called inside the class
+		className := c.Tbl.ParentName()
+		name = className + "." + scn.SubroutineName.GetValue()
+		// Push this as the first parameter
+		c.Push(PointerSegm, "0")
+		argCount++
 	}
 
-	ac := scn.Params.Len()
-	c.Call(name, ac)
+	argCount += scn.Params.Len()
+	c.Call(name, argCount)
 }
 
 type termNodeType int

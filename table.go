@@ -68,6 +68,16 @@ func NewSymbolTableList() *SymbolTableList {
 	return &SymbolTableList{list}
 }
 
+func (stl *SymbolTableList) find(name string) (VarInfo, error) {
+	for i := len(stl.list) - 1; i >= 0; i-- {
+		tbl := stl.list[i]
+		if vi, err := tbl.GetVarInfo(name); err == nil {
+			return vi, nil
+		}
+	}
+	return VarInfo{}, fmt.Errorf("A variable named \"%s\" was not declared", name)
+}
+
 func (stl *SymbolTableList) CreateTable(name string) {
 	tbl := NewSymbolTable(name)
 	stl.list = append(stl.list, tbl)
@@ -83,11 +93,18 @@ func (stl *SymbolTableList) Len() int {
 	return len(stl.list)
 }
 
-func (stl *SymbolTableList) Name() (n string) {
-	if len(stl.list) > 0 {
-		n = stl.list[len(stl.list)-1].Name
+func (stl *SymbolTableList) Name() string {
+	if len(stl.list) == 0 {
+		panic("There is no symbol tabes")
 	}
-	return
+	return stl.list[len(stl.list)-1].Name
+}
+
+func (stl *SymbolTableList) ParentName() string {
+	if len(stl.list) <= 1 {
+		panic("There is no parent tables")
+	}
+	return stl.list[len(stl.list)-2].Name
 }
 
 func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) {
@@ -102,16 +119,19 @@ func (stl *SymbolTableList) AddVar(kind VarKind, vType, name string) {
 }
 
 func (stl *SymbolTableList) GetVarInfo(name string) VarInfo {
-	for i := len(stl.list) - 1; i >= 0; i-- {
-		tbl := stl.list[i]
-		if vi, err := tbl.GetVarInfo(name); err == nil {
-			return vi
-		}
+	vi, err := stl.find(name)
+	if err != nil {
+		panic(fmt.Errorf("Cannot find variable %s", name))
 	}
-	panic(fmt.Errorf("Cannot find variable %s", name))
+	return vi
 }
 
 func (stl *SymbolTableList) Count(kind VarKind) int {
 	tbl := stl.list[len(stl.list)-1]
 	return tbl.Count(kind)
+}
+
+func (stl *SymbolTableList) IsVar(name string) bool {
+	_, err := stl.find(name)
+	return err == nil
 }
